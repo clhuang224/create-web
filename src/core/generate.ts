@@ -56,6 +56,7 @@ export async function generate({
 
   if (mode === 'create') await applyVueBase(ctx)
   for (const feature of toApply) await feature.apply(ctx)
+  for (const feature of resolved) await feature.sync?.(ctx)
 
   ctx.pkg.save(fs)
   writeManifest(fs, finalOptions)
