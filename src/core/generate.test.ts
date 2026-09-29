@@ -2,13 +2,18 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { presets } from '../presets.ts'
+import { presetFeatures, presets } from '../presets.ts'
 import { generate } from './generate.ts'
 import { readManifest } from './manifest.ts'
 import type { ProjectOptions } from './types.ts'
 import { VirtualFs } from './vfs.ts'
 
-const lynn: ProjectOptions = { name: 'demo', kind: 'frontend', ...presets.lynn }
+const lynn: ProjectOptions = {
+  name: 'demo',
+  kind: 'frontend',
+  ...presets.lynn,
+  features: presetFeatures(presets.lynn, 'vue'),
+}
 
 let root: string
 beforeEach(async () => {
@@ -70,6 +75,49 @@ describe('generate (create)', () => {
     expect(await fs.read('.github/workflows/deploy.yml')).not.toContain(
       '--base=',
     )
+  })
+})
+
+describe('generate (create, react)', () => {
+  const react: ProjectOptions = {
+    ...lynn,
+    framework: 'react',
+    features: presetFeatures(presets.lynn, 'react'),
+  }
+
+  it('produces the expected files for the lynn preset', async () => {
+    const { fs, notes } = await generate({
+      root,
+      mode: 'create',
+      options: react,
+    })
+    expect(notes).toEqual([])
+    expect(fs.changedPaths()).toMatchSnapshot()
+  })
+
+  it('wraps the app with providers and routes', async () => {
+    const { fs } = await generate({ root, mode: 'create', options: react })
+    const main = await fs.read('src/main.tsx')
+    expect(main).toMatch(
+      /<Provider store=\{store\}>\s*<BrowserRouter basename=\{import\.meta\.env\.BASE_URL\}>\s*<App \/>/,
+    )
+    expect(await fs.read('src/App.tsx')).toContain(
+      '<Route path="/" element={<HomePage />} />',
+    )
+    expect(await fs.read('eslint.config.js')).toContain(
+      'eslint-plugin-react-hooks',
+    )
+    expect(fs.changedPaths()).not.toContain('tsconfig.vitest.json')
+  })
+
+  it('does not offer Vue features to React projects', async () => {
+    await expect(
+      generate({
+        root,
+        mode: 'create',
+        options: { ...react, features: ['pinia'] },
+      }),
+    ).rejects.toThrow(/does not support react/)
   })
 })
 

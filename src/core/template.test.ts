@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { presets } from '../presets.ts'
+import { presetFeatures, presets } from '../presets.ts'
 import type { Context } from './context.ts'
 import { PackageJsonEditor } from './package-json.ts'
 import { copyTemplate } from './template.ts'
@@ -10,7 +10,12 @@ describe('copyTemplate', () => {
     const fs = new VirtualFs('/nonexistent')
     const ctx: Context = {
       mode: 'create',
-      options: { name: 'demo', kind: 'frontend', ...presets.lynn },
+      options: {
+        name: 'demo',
+        kind: 'frontend',
+        ...presets.lynn,
+        features: presetFeatures(presets.lynn, 'vue'),
+      },
       fs,
       pkg: new PackageJsonEditor({}),
       has: () => false,

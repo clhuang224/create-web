@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Context } from '../core/context.ts'
 import { PackageJsonEditor } from '../core/package-json.ts'
 import { VirtualFs } from '../core/vfs.ts'
-import { presets } from '../presets.ts'
+import { presetFeatures, presets } from '../presets.ts'
 import { managedBlock, syncManagedBlock } from './managed-block.ts'
 
 function createContext() {
@@ -10,7 +10,12 @@ function createContext() {
   const fs = new VirtualFs('/nonexistent')
   const ctx: Context = {
     mode: 'add',
-    options: { name: 'demo', kind: 'frontend', ...presets.lynn },
+    options: {
+      name: 'demo',
+      kind: 'frontend',
+      ...presets.lynn,
+      features: presetFeatures(presets.lynn, 'vue'),
+    },
     fs,
     pkg: new PackageJsonEditor({}),
     has: () => false,

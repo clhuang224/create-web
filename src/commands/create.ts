@@ -6,7 +6,7 @@ import { generate } from '../core/generate.ts'
 import { ResolveError } from '../core/resolver.ts'
 import type { FeatureId, Framework, PackageManager } from '../core/types.ts'
 import { features as registry } from '../features/index.ts'
-import { type PresetName, presets } from '../presets.ts'
+import { type PresetName, presetFeatures, presets } from '../presets.ts'
 import { exitIfCancelled, parseList, runProcess, showNotes } from './shared.ts'
 
 const PACKAGE_NAME = /^[a-z0-9][a-z0-9._-]*$/
@@ -111,7 +111,7 @@ export const createCommand = defineCommand({
         : defaults.packageManager)) as PackageManager
 
     const features = (parseList(args.features) ??
-      preset?.features ??
+      (preset ? presetFeatures(preset, framework) : undefined) ??
       (interactive
         ? exitIfCancelled(
             await p.multiselect<FeatureId>({
@@ -127,11 +127,11 @@ export const createCommand = defineCommand({
                   label: feature.label,
                   hint: feature.hint,
                 })),
-              initialValues: defaults.features,
+              initialValues: presetFeatures(defaults, framework),
               required: false,
             }),
           )
-        : defaults.features)) as FeatureId[]
+        : presetFeatures(defaults, framework))) as FeatureId[]
 
     let pagesDomain = args['pages-domain']
     if (

@@ -4,7 +4,8 @@ import { features } from './features/index.ts'
 export interface Preset {
   framework: Framework
   packageManager: PackageManager
-  features: FeatureId[]
+  /** Omitted: every feature that supports the chosen framework. */
+  features?: FeatureId[]
 }
 
 export const presets = {
@@ -12,8 +13,22 @@ export const presets = {
   lynn: {
     framework: 'vue',
     packageManager: 'pnpm',
-    features: features.map((feature) => feature.id),
   },
 } satisfies Record<string, Preset>
 
 export type PresetName = keyof typeof presets
+
+export function presetFeatures(
+  preset: Preset,
+  framework: Framework,
+): FeatureId[] {
+  return (
+    preset.features ??
+    features
+      .filter(
+        (feature) =>
+          !feature.frameworks || feature.frameworks.includes(framework),
+      )
+      .map((feature) => feature.id)
+  )
+}

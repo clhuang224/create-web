@@ -38,3 +38,41 @@ exports[`generate (create) > produces the expected files for the lynn preset 1`]
   "vitest.config.ts",
 ]
 `;
+
+exports[`generate (create, react) > produces the expected files for the lynn preset 1`] = `
+[
+  ".create-web.json",
+  ".editorconfig",
+  ".github/actions/setup-pnpm/action.yml",
+  ".github/workflows/ci.yml",
+  ".github/workflows/deploy.yml",
+  ".gitignore",
+  ".husky/commit-msg",
+  ".husky/pre-commit",
+  ".husky/pre-push",
+  ".prettierignore",
+  ".prettierrc",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "README.md",
+  "docs/architecture.md",
+  "docs/plan.md",
+  "eslint.config.js",
+  "index.html",
+  "package.json",
+  "src/App.tsx",
+  "src/components/HelloWorld.tsx",
+  "src/components/__tests__/HelloWorld.test.tsx",
+  "src/main.tsx",
+  "src/pages/HomePage.tsx",
+  "src/store/counterSlice.ts",
+  "src/store/hooks.ts",
+  "src/store/index.ts",
+  "src/style.css",
+  "tsconfig.app.json",
+  "tsconfig.json",
+  "tsconfig.node.json",
+  "vite.config.ts",
+  "vitest.config.ts",
+]
+`;

@@ -7,6 +7,8 @@ export type PackageManager = 'pnpm' | 'bun'
 export type FeatureId =
   | 'vue-router'
   | 'pinia'
+  | 'react-router'
+  | 'redux'
   | 'vitest'
   | 'eslint'
   | 'prettier'
