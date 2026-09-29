@@ -30,6 +30,7 @@ templates/          # Files copied into generated projects
 1. Create `src/features/<id>.ts` with `defineFeature`, add the id to `FeatureId`, and register it in `src/features/index.ts`.
 2. Put static files under `templates/<name>/` and copy them with `copyTemplate`. A single leading `_` in a file name becomes `.` (npm drops dotfiles like `.gitignore` on publish).
 3. Edit shared files only through `src/editors/`. When an edit cannot be made safely (e.g. the user changed the file), call `ctx.note` with a manual step instead of overwriting.
+   If a file depends on project state that other features change (scripts, other features), write it with `managedBlock` in `apply` and fill it in `sync`, which runs for every present feature after each `create` or `add`.
 4. Add new dependency versions to `src/versions.ts`.
 5. Cover it in `src/core/generate.test.ts` and run `pnpm run e2e`.
 

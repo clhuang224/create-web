@@ -71,6 +71,7 @@ prompts / flags / preset
 - Prefer features that own separate config files (e.g. `vitest.config.ts` apart from `vite.config.ts`) to reduce edits to shared files.
 - **Manifest** (`.create-web.json`): generated projects record their choices in a small manifest file so `add` can rely on it. `add` is only guaranteed on projects with a manifest; projects without one fall back to detection (best effort).
 - **Entry routing**: `pnpm create @clhuang224/web my-app` invokes the bin as `create-web my-app`, so a first argument that is not a known subcommand must be routed to `create`. citty's `default` subcommand only covers the no-argument case, so this needs a small pre-parse in `src/cli.ts`.
+- **Sync and managed blocks**: files derived from project state (Git hooks, CI matrix, `AGENTS.md` command list) contain blocks between `create-web:start <id>` / `create-web:end <id>` comments. Each present feature's `sync` rewrites its blocks after every run, so a feature added later (e.g. `vitest` after `husky`) is reflected everywhere. Content outside the markers belongs to the user; missing markers become a manual step.
 - **Presets**: named option sets; `lynn` reproduces the author's usual setup in one step. Every prompt also has a CLI flag so generation is scriptable and testable.
 
 ### Author conventions to generate
@@ -102,7 +103,6 @@ Derived from `bus`, `queener` and `milestone-checker`:
 
 ## Known Limitations
 
-- Hooks and CI workflows are generated from the scripts present at the time. Adding e.g. `vitest` after `husky` does not update `pre-push`; re-running those features is not supported yet.
 - oxlint and oxfmt options, and `@clhuang224/vite-plugin-svg-sprite`, are not implemented yet.
 
 ## Deferred
