@@ -15,8 +15,8 @@ Record new architecture decisions in `docs/plan.md` instead of scattering them a
 ```text
 src/
 ├── cli.ts          # Entry; routes `create-web <dir>` to `create`
-├── commands/       # `create` and `add` (prompts, flags, install)
-├── core/           # Pipeline: resolver, virtual fs, context, manifest, formatting
+├── commands/       # `create`, `add`, `add-member` (prompts, flags, install)
+├── core/           # Pipeline: resolver, virtual fs, context, manifest, formatting, workspaces
 ├── bases/          # Base project per kind and framework (create only)
 ├── features/       # Feature modules; `index.ts` is the registry
 ├── editors/        # Safe edits to shared files (vite config, main.ts, JSON)
@@ -33,7 +33,8 @@ templates/          # Files copied into generated projects
    If a whole config file depends on other features (e.g. `eslint.config.js`), write it in `sync` with `ctx.writeGenerated` and check `ctx.canRegenerate` first, so user edits are never overwritten.
    If a file depends on project state that other features change (scripts, other features), write it with `managedBlock` in `apply` and fill it in `sync`, which runs for every present feature after each `create` or `add`.
 4. Add new dependency versions to `src/versions.ts`.
-5. Cover it in `src/core/generate.test.ts` and run `pnpm run e2e`.
+5. Cover it in `src/core/generate.test.ts` (and `src/core/workspace.test.ts` if it behaves differently in a monorepo) and run `pnpm run e2e`.
+6. Decide where it lives in a monorepo: add `'monorepo'` to `kinds` if the root owns it, or set `standaloneOnly` if it cannot work inside a member yet.
 
 ## Commands
 
@@ -43,7 +44,7 @@ templates/          # Files copied into generated projects
 - `pnpm run typecheck`
 - `pnpm run format` / `pnpm run format:check`
 - `pnpm run test`
-- `pnpm run e2e`: generate a project with the lynn preset in a temp dir and run its lint, typecheck, format check, tests and build
+- `pnpm run e2e`: generate representative projects (Vue, React, library, oxlint/oxfmt variants, monorepo) in a temp dir, install them, and run their lint, typecheck, format check, tests and build (cases are listed in `scripts/e2e.sh`)
 
 Try the built CLI with `node dist/cli.mjs`.
 

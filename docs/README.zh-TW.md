@@ -7,7 +7,7 @@
 靈感來自 `create-vite` 與 `create-vue`，但它不只提供框架模板：Git hooks、CI、lint 與 format 規則、部署設定，以及給 AI agent 看的說明檔（`AGENTS.md` / `CLAUDE.md`）都會一起配置好，並且彼此搭配。
 
 > [!WARNING]
-> 這個專案還在早期開發階段，尚未發布到 npm。目前支援前端（Vue、React）與 library 專案。
+> 這個專案還在早期開發階段，尚未發布到 npm。目前支援前端（Vue、React）、library 與 monorepo 專案。
 
 ## 使用方式
 
@@ -38,7 +38,7 @@ create-web add <feature>
 | `backend` | API 伺服器 |
 | `monorepo` | 在 `apps/*` 與 `packages/*` 下組合上述類型的 workspace |
 
-目前可以使用 `frontend` 與 `library`，`backend` 與 `monorepo` 規劃中。開發路線請見 [plan.md](./plan.md)。
+目前可以使用 `frontend`、`library` 與 `monorepo`，`backend` 規劃中。開發路線請見 [plan.md](./plan.md)。
 
 建立一個 scoped 套件名稱的 library：
 
@@ -47,6 +47,23 @@ pnpm create @clhuang224/web my-lib --kind library --name @my-scope/my-lib
 ```
 
 Library 會用 [tsdown](https://tsdown.dev) 打包成附型別宣告的 ESM。可選的 `publish` 功能會加入一個 workflow，在推送 `v*` tag 時發布到 npm。
+
+### Monorepo
+
+Monorepo 會把共用的工具（formatter、Git hooks、CI、agent 文件）放在根目錄，app 放在 `apps/*`，套件放在 `packages/*`。每個專案有自己的 linter、測試和 `.create-web.json`，所以在專案資料夾裡也能使用 `create-web add`。
+
+```bash
+# 預設建立 apps/web（Vue）與 packages/shared（library）
+pnpm create @clhuang224/web my-repo --kind monorepo
+
+# 或是指定要建立的專案
+pnpm create @clhuang224/web my-repo --kind monorepo --members web:react,shared:library
+
+# 之後在 monorepo 根目錄新增專案
+create-web add-member admin --type vue
+```
+
+各專案會以根目錄名稱作為 scope，例如 `@my-repo/web`。Monorepo 內目前還不支援 GitHub Pages 部署與 publish workflow。
 
 ## 選項
 

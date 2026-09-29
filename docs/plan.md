@@ -18,7 +18,7 @@ Product and architecture direction for Web Starter CLI. Record decisions here; k
 | Topic               | Decision                                                                                                                                |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | Audience            | Author first; opinionated defaults. Public docs are written for other users too                                                          |
-| Output shape        | Single project first; monorepo later (see Roadmap)                                                                                      |
+| Output shape        | Single project or monorepo (`--kind monorepo`)                                                                                            |
 | Existing projects   | Supported via `add <feature>`                                                                                                           |
 | Dependency versions | Pinned in the tool, bumped manually                                                                                                     |
 | Distribution        | Public npm as `@clhuang224/create-web` (`pnpm create @clhuang224/web`)                                                                  |
@@ -43,7 +43,13 @@ The first prompt picks a kind. Each kind has its own base template and its own s
 - `backend`: API server (framework TBD, e.g. NestJS / Elysia / Hono)
 - `monorepo`: workspace root that composes other kinds under `apps/*` and `packages/*`
 
-A monorepo is not a separate generator: it is a workspace root plus N projects produced by the other kinds. `add app <kind>` inside a monorepo reuses the same pipeline.
+A monorepo is not a separate generator: it is a workspace root plus N projects produced by the other kinds (`src/core/workspace.ts`). `create-web add-member <name> --type vue|react|library` adds a project later through the same pipeline.
+
+- **Root** (`kind: monorepo`): `pnpm-workspace.yaml` or `package.json` `workspaces`, root scripts that fan out (`pnpm -r --if-present run <script>` / `bun run --filter '*' <script>`), and the features whose `kinds` include `monorepo`: formatter, husky, GitHub Actions, agent docs.
+- **Members**: frontend apps under `apps/<name>`, libraries under `packages/<name>`, named `@<root>/<name>` (as in `bus`). They get linters, tests and framework features, but no root-owned files (`.gitignore`, `.editorconfig`, `packageManager`, `engines`).
+- **One feature list, split**: `create` takes a single feature list and assigns each feature to the root or to the members that support it; features that fit neither are rejected.
+- **Inherited features**: each member's manifest records the root's features under `workspace.inherited`. They count for `ctx.has` (e.g. ESLint turns on `skipFormatting` because the root has Prettier) but are never applied in the member. `create-web add` inside a member refuses root-owned features.
+- **Standalone-only features**: `github-pages` and `publish` write workflows that assume the project is at the repository root, so they are marked `standaloneOnly` and are not offered inside a monorepo yet.
 
 ### Pipeline
 
@@ -99,12 +105,16 @@ Derived from `bus`, `queener` and `milestone-checker`:
 1. `frontend` kind: Vue and React SPA, `lynn` preset, pnpm and bun. Vue and React are done.
 2. `add` command for features on existing frontend projects. Done for projects with a manifest; detection-based fallback is not implemented.
 3. `library` kind. Done; no framework, features limited to tooling (Vitest, linters, formatters, hooks, CI, publish workflow, agent docs).
-4. `monorepo` kind composing frontend and library.
+4. `monorepo` kind composing frontend and library. Done.
 5. `backend` kind.
 6. Deferred items below.
 
 ## Known Limitations
 
+- Adding a root feature later (e.g. a formatter) does not update members: their ESLint configs will not pick up `skipFormatting` until regenerated. Running `sync` across members is not implemented.
+- Git hooks in a monorepo run every workspace's checks; they are not path-scoped like `bus`'s `check-staged-workspaces.sh` yet.
+- Members are independent: `create-web` does not add `workspace:*` dependencies between them. An app that uses a library member must add the dependency and build the library first (its `exports` point to `dist`).
+- The e2e check covers pnpm monorepos only; bun workspaces are covered by unit tests.
 - Generated config files from before hash tracking (projects created before this was added) are treated as edited, so `add` reports manual steps for them instead of updating them.
 
 ## Deferred
