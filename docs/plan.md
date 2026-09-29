@@ -24,7 +24,6 @@ Product and architecture direction for Web Starter CLI. Record decisions here; k
 | Distribution        | Public npm as `@clhuang224/create-web` (`pnpm create @clhuang224/web`)                                                                  |
 | Tool repo tooling   | pnpm, TypeScript strict, tsdown, Vitest, ESLint + Prettier, husky; same conventions as generated projects                               |
 | Commit lint         | Plain shell `commit-msg` hook (Conventional Commits regex), as used in `bus` and `queener`; Commitlint optional at most                 |
-| SVG sprite          | `@clhuang224/vite-plugin-svg-sprite` (not `svg-sprite-loader`, which is webpack-only); requires generating `.npmrc` for GitHub Packages |
 | Env variables       | Framework/Vite built-in for frontend; dotenv only for Node/backend kinds                                                                |
 | Global dotfiles | Referenced, never installed. `create-web` only writes inside the project directory. Generated `AGENTS.md` / `CLAUDE.md` may point to `clhuang224/dotfiles` for general habits, but must stay self-contained for rules the project enforces (e.g. commit format checked by hooks), since cloud sessions, CI agents and other contributors do not have the dotfiles |
 | License | MIT |
@@ -103,7 +102,7 @@ Derived from `bus`, `queener` and `milestone-checker`:
 
 ## Known Limitations
 
-- oxlint and oxfmt options, and `@clhuang224/vite-plugin-svg-sprite`, are not implemented yet.
+- oxlint and oxfmt options are not implemented yet.
 
 ## Deferred
 

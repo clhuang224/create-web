@@ -53,7 +53,6 @@ Some generated files (Git hooks, the CI workflow, `AGENTS.md`) contain blocks be
 | Formatter | Prettier / oxfmt | |
 | Testing | Vitest | |
 | CSS Framework | Tailwind CSS / UnoCSS | |
-| SVG Sprite | [`@clhuang224/vite-plugin-svg-sprite`](https://github.com/clhuang224/svg-sprite) | |
 | Git Hooks | Husky | Conventional Commits check, pre-commit lint and typecheck, pre-push tests |
 | CI/CD | GitHub Actions | Optional GitHub Pages deployment with SPA fallback |
 | Environment Variables | Framework built-in | dotenv for backend projects |

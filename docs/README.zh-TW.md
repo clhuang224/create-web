@@ -53,7 +53,6 @@ create-web add <feature>
 | Formatter | Prettier / oxfmt | |
 | 測試 | Vitest | |
 | CSS 框架 | Tailwind CSS / UnoCSS | |
-| SVG Sprite | [`@clhuang224/vite-plugin-svg-sprite`](https://github.com/clhuang224/svg-sprite) | |
 | Git Hooks | Husky | Conventional Commits 檢查、pre-commit 跑 lint 與 typecheck、pre-push 跑測試 |
 | CI/CD | GitHub Actions | 可選擇部署到 GitHub Pages，並附 SPA fallback |
 | 環境變數 | 框架內建 | backend 專案使用 dotenv |
