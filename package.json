@@ -13,6 +13,7 @@
     "type": "git",
     "url": "https://github.com/clhuang224/create-web.git"
   },
+  "license": "MIT",
   "author": {
     "name": "Lynn",
     "email": "clhuang224@gmail.com"
