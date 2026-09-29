@@ -25,6 +25,7 @@ Product and architecture direction for Web Starter CLI. Record decisions here; k
 | Tool repo tooling   | pnpm, TypeScript strict, tsdown, Vitest, ESLint + Prettier, husky; same conventions as generated projects                               |
 | Commit lint         | Plain shell `commit-msg` hook (Conventional Commits regex), as used in `bus` and `queener`; Commitlint optional at most                 |
 | Env variables       | Framework/Vite built-in for frontend; dotenv only for Node/backend kinds                                                                |
+| Linter / formatter | ESLint, oxlint, or both; Prettier or oxfmt (mutually exclusive). With both linters, `lint` runs `oxlint && eslint .` and ESLint uses eslint-plugin-oxlint to skip overlapping rules. oxfmt is configured to match Prettier's output (`printWidth: 80`, no package.json sorting). `lynn` uses ESLint + Prettier |
 | React routing | React Router in declarative mode (`BrowserRouter` + `<Routes>`), matching the static SPA deploy; framework mode is deferred with other SSR options |
 | Global dotfiles | Referenced, never installed. `create-web` only writes inside the project directory. Generated `AGENTS.md` / `CLAUDE.md` may point to `clhuang224/dotfiles` for general habits, but must stay self-contained for rules the project enforces (e.g. commit format checked by hooks), since cloud sessions, CI agents and other contributors do not have the dotfiles |
 | License | MIT |
@@ -72,6 +73,7 @@ prompts / flags / preset
 - **Manifest** (`.create-web.json`): generated projects record their choices in a small manifest file so `add` can rely on it. `add` is only guaranteed on projects with a manifest; projects without one fall back to detection (best effort).
 - **Entry routing**: `pnpm create @clhuang224/web my-app` invokes the bin as `create-web my-app`, so a first argument that is not a known subcommand must be routed to `create`. citty's `default` subcommand only covers the no-argument case, so this needs a small pre-parse in `src/cli.ts`.
 - **Sync and managed blocks**: files derived from project state (Git hooks, CI matrix, `AGENTS.md` command list) contain blocks between `create-web:start <id>` / `create-web:end <id>` comments. Each present feature's `sync` rewrites its blocks after every run, so a feature added later (e.g. `vitest` after `husky`) is reflected everywhere. Content outside the markers belongs to the user; missing markers become a manual step.
+- **Generated config files**: config files whose content depends on other features (`eslint.config.js`, `.oxlintrc.json`) are written with `ctx.writeGenerated`, which records their hash in the manifest. A later `add` regenerates them only if the hash still matches (the user has not edited them); otherwise it reports what to change.
 - **Presets**: named option sets. A preset without an explicit feature list selects every feature that supports the chosen framework, so `lynn` works for both Vue and React; `lynn` reproduces the author's usual setup in one step. Every prompt also has a CLI flag so generation is scriptable and testable.
 
 ### Author conventions to generate
@@ -103,7 +105,7 @@ Derived from `bus`, `queener` and `milestone-checker`:
 
 ## Known Limitations
 
-- oxlint and oxfmt options are not implemented yet.
+- Generated config files from before hash tracking (projects created before this was added) are treated as edited, so `add` reports manual steps for them instead of updating them.
 
 ## Deferred
 

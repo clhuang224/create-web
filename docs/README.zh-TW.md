@@ -49,7 +49,7 @@ create-web add <feature>
 | 狀態管理 | Pinia / Redux Toolkit | 依框架而定 |
 | 建置工具 | Vite | |
 | 套件管理器 | pnpm / bun | hooks、CI 與 scripts 會跟著調整 |
-| Linter | ESLint / oxlint / 兩者並用 | |
+| Linter | ESLint / oxlint / 兩者並用 | 兩者並用時，ESLint 會略過 oxlint 已經檢查的規則 |
 | Formatter | Prettier / oxfmt | |
 | 測試 | Vitest | |
 | CSS 框架 | Tailwind CSS / UnoCSS | |
@@ -58,10 +58,16 @@ create-web add <feature>
 | 環境變數 | 框架內建 | backend 專案使用 dotenv |
 | Agent 文件 | `AGENTS.md` / `CLAUDE.md` | 另附 `docs/plan.md` 與 `docs/architecture.md` 骨架 |
 
-`lynn` preset 會一次選好上述所有項目，也就是作者平常慣用的配置。預設是 Vue，搭配 `--framework react` 就會換成對應的 React 選項：
+`lynn` preset 會一次選好上述所有項目，也就是作者平常慣用的配置（linter 與 formatter 用 ESLint 和 Prettier）。預設是 Vue，搭配 `--framework react` 就會換成對應的 React 選項：
 
 ```bash
 pnpm create @clhuang224/web my-project --yes --framework react
+```
+
+也可以用 `--features` 指定確切的功能組合，例如改用 oxlint 與 oxfmt：
+
+```bash
+pnpm create @clhuang224/web my-project --yes --features oxlint,eslint,oxfmt,vitest,husky
 ```
 
 ## 開發

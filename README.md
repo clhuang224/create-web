@@ -49,7 +49,7 @@ Some generated files (Git hooks, the CI workflow, `AGENTS.md`) contain blocks be
 | State Management | Pinia / Redux Toolkit | Depends on the framework |
 | Build Tool | Vite | |
 | Package Manager | pnpm / bun | Hooks, CI and scripts adapt to the choice |
-| Linter | ESLint / oxlint / both | |
+| Linter | ESLint / oxlint / both | With both, ESLint skips the rules oxlint already covers |
 | Formatter | Prettier / oxfmt | |
 | Testing | Vitest | |
 | CSS Framework | Tailwind CSS / UnoCSS | |
@@ -58,10 +58,16 @@ Some generated files (Git hooks, the CI workflow, `AGENTS.md`) contain blocks be
 | Environment Variables | Framework built-in | dotenv for backend projects |
 | Agent Docs | `AGENTS.md` / `CLAUDE.md` | Plus `docs/plan.md` and `docs/architecture.md` skeletons |
 
-A `lynn` preset picks all of these in one step, matching the author's usual setup. It defaults to Vue; combine it with `--framework react` to get the React equivalents:
+A `lynn` preset picks all of these in one step, matching the author's usual setup (ESLint and Prettier as linter and formatter). It defaults to Vue; combine it with `--framework react` to get the React equivalents:
 
 ```bash
 pnpm create @clhuang224/web my-project --yes --framework react
+```
+
+Pass `--features` to pick an exact set instead, for example oxlint and oxfmt:
+
+```bash
+pnpm create @clhuang224/web my-project --yes --features oxlint,eslint,oxfmt,vitest,husky
 ```
 
 ## Development
