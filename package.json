@@ -34,7 +34,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "pnpm run build && sh scripts/e2e.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
