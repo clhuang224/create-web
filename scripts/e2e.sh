@@ -12,6 +12,8 @@ vue|--framework vue
 react|--framework react
 vue-ox|--framework vue --features oxlint,eslint,oxfmt,vue-router,pinia,vitest,husky
 react-ox|--framework react --features oxlint,oxfmt,react-router,redux,vitest
+library|--kind library --name @e2e/library
+library-ox|--kind library --features oxlint,oxfmt,vitest
 "
 
 echo "$cases" | while IFS='|' read -r name flags; do
@@ -26,4 +28,13 @@ echo "$cases" | while IFS='|' read -r name flags; do
     echo "== $name: $script"
     pnpm run "$script"
   done
+
+  if [ -f tsdown.config.ts ]; then
+    echo "== $name: package entry points"
+    test -f dist/index.d.ts
+    node --input-type=module -e "
+      const { greet } = await import('./dist/index.js')
+      if (greet('x') !== 'Hello, x!') throw new Error('unexpected output')
+    "
+  fi
 done
