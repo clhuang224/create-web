@@ -1,0 +1,117 @@
+# Plan
+
+Product and architecture direction for Web Starter CLI. Record decisions here; keep concrete task lists elsewhere once implementation starts.
+
+## Goals
+
+- Scaffold new projects with the author's own conventions (hooks, CI, lint/format, docs skeleton, deploy), not just a framework template.
+- Add features to existing projects (`add` command) through the same code path used for creation.
+- Personal use first. Published to npm for convenience, not for broad adoption.
+
+## Non-goals (for now)
+
+- Supporting every combination of options. Favor a strong default preset over option breadth.
+- Resolving the latest dependency versions at generation time. Versions are pinned in the tool; "it works" beats "it is newest".
+
+## Decisions
+
+| Topic               | Decision                                                                                                                                |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Audience            | Author only; opinionated defaults                                                                                                       |
+| Output shape        | Single project first; monorepo later (see Roadmap)                                                                                      |
+| Existing projects   | Supported via `add <feature>`                                                                                                           |
+| Dependency versions | Pinned in the tool, bumped manually                                                                                                     |
+| Distribution        | Public npm as `@clhuang224/create-web` (`pnpm create @clhuang224/web`)                                                                  |
+| Tool repo tooling   | pnpm, TypeScript strict, tsdown, Vitest, ESLint + Prettier, husky; same conventions as generated projects                               |
+| Commit lint         | Plain shell `commit-msg` hook (Conventional Commits regex), as used in `bus` and `queener`; Commitlint optional at most                 |
+| SVG sprite          | `@clhuang224/vite-plugin-svg-sprite` (not `svg-sprite-loader`, which is webpack-only); requires generating `.npmrc` for GitHub Packages |
+| Env variables       | Framework/Vite built-in for frontend; dotenv only for Node/backend kinds                                                                |
+
+## Architecture
+
+Hybrid of layered templates and feature modules.
+
+### Project kinds
+
+The first prompt picks a kind. Each kind has its own base template and its own set of applicable features.
+
+- `frontend`: SPA built with Vite
+- `library`: TypeScript package built with tsdown/unbuild, publishable to npm or GitHub Packages
+- `backend`: API server (framework TBD, e.g. NestJS / Elysia / Hono)
+- `monorepo`: workspace root that composes other kinds under `apps/*` and `packages/*`
+
+A monorepo is not a separate generator: it is a workspace root plus N projects produced by the other kinds. `add app <kind>` inside a monorepo reuses the same pipeline.
+
+### Pipeline
+
+```text
+prompts / flags / preset
+        │
+        ▼
+    resolver ── validates compatibility (kind × framework × feature), fills defaults
+        │
+        ▼
+  context (detected or chosen: kind, framework, package manager, existing files)
+        │
+        ▼
+  base template (create only) + feature modules apply()
+        │
+        ▼
+  virtual file system ── dry-run / diff preview
+        │
+        ▼
+  write to disk, install, git init (create only)
+```
+
+- **Base templates**: one minimal, runnable project per kind × framework, copied as files.
+- **Feature modules**: each declares `id`, `kinds`, `requires`, `conflicts`, `detect(ctx)` and `apply(ctx)`. `apply` adds dependencies, scripts and files through the context API rather than writing to disk directly.
+- **Shared files** (`package.json`, `vite.config.ts`, `eslint.config.*`, `.husky/*`, CI workflows): built from structured data contributed by features during `create`. During `add`, existing files are edited with AST tooling (e.g. magicast); when an edit cannot be made safely, print manual instructions instead of guessing.
+- Prefer features that own separate config files (e.g. `vitest.config.ts` apart from `vite.config.ts`) to reduce edits to shared files.
+- **Manifest**: generated projects record their choices in a small manifest file so `add` can rely on it. `add` is only guaranteed on projects with a manifest; projects without one fall back to detection (best effort).
+- **Entry routing**: `pnpm create @clhuang224/web my-app` invokes the bin as `create-web my-app`, so a first argument that is not a known subcommand must be routed to `create`. citty's `default` subcommand only covers the no-argument case, so this needs a small pre-parse in `src/cli.ts`.
+- **Presets**: named option sets; `lynn` reproduces the author's usual setup in one step. Every prompt also has a CLI flag so generation is scriptable and testable.
+
+### Author conventions to generate
+
+Derived from `bus`, `queener` and `milestone-checker`:
+
+- `.husky/commit-msg` with the Conventional Commits regex
+- `.husky/pre-commit` running lint and typecheck; `.husky/pre-push` running tests (path-scoped in monorepos)
+- `.github/actions/setup-<pm>` composite action, check workflow (lint / typecheck / test), deploy workflow
+- GitHub Pages deploy with SPA `404.html` fallback, optional `CNAME`
+- `AGENTS.md` / `CLAUDE.md` skeleton, `docs/plan.md`, `docs/architecture.md`
+- `packageManager` and `engines` fields in `package.json`
+- Prettier (`semi: false`, `singleQuote: true`) or oxfmt; ESLint, oxlint, or both
+
+### Testing the tool
+
+- Unit tests (Vitest) for the resolver and each feature's `apply`.
+- Snapshot tests of generated file trees for representative option sets.
+- CI job that generates a few representative projects, installs them, and runs lint / typecheck / test / build.
+
+## Roadmap
+
+1. `frontend` kind: Vue and React SPA, `lynn` preset, pnpm and bun.
+2. `add` command for features on existing frontend projects.
+3. `library` kind.
+4. `monorepo` kind composing frontend and library.
+5. `backend` kind.
+6. Deferred items below.
+
+## Deferred
+
+### Angular
+
+Angular is driven by Angular CLI (`@angular/build`, `angular.json`) instead of a user-owned Vite config, so most shared-file builders do not apply. Plan to treat it as a separate base template with its own feature implementations. Defaults follow the author's global rules: standalone components + Signals, zoneless, Vitest. NgRx is optional since Signals cover most state needs.
+
+### Svelte
+
+Svelte Navigator is unmaintained (Svelte 3 only). Routing will likely come from SvelteKit; state from Svelte 5 runes rather than a separate library.
+
+### Meta frameworks and SSR
+
+Nuxt, SvelteKit, and React Router framework mode (as used in `bus`). These change the deploy story (SSR/SSG vs static GitHub Pages), so they come after the SPA path is stable.
+
+## Open questions
+
+- Backend framework choices for the `backend` kind.
