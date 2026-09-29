@@ -7,6 +7,8 @@ export default defineFeature({
   label: 'Publish workflow',
   hint: 'publish to npm when a v* tag is pushed',
   kinds: ['library'],
+  // The workflow assumes the package is at the repository root.
+  standaloneOnly: true,
   requires: ['github-actions'],
   apply(ctx) {
     ctx.fs.write(

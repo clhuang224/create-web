@@ -6,6 +6,8 @@ export default defineFeature({
   label: 'GitHub Pages',
   hint: 'deploy on push to main',
   kinds: ['frontend'],
+  // The deploy workflow assumes the app is at the repository root.
+  standaloneOnly: true,
   requires: ['github-actions'],
   apply(ctx) {
     const { pagesDomain } = ctx.options

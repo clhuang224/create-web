@@ -45,7 +45,7 @@ export default defineFeature({
   id: 'github-actions',
   label: 'GitHub Actions',
   hint: 'CI checks on pull requests',
-  kinds: ['frontend', 'library'],
+  kinds: ['frontend', 'library', 'monorepo'],
   apply(ctx) {
     ctx.fs.write(
       `.github/actions/setup-${ctx.options.packageManager}/action.yml`,

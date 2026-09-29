@@ -2,6 +2,7 @@ import type { Context } from '../core/context.ts'
 import { ResolveError } from '../core/resolver.ts'
 import type { ProjectOptions } from '../core/types.ts'
 import { applyLibraryBase } from './library.ts'
+import { applyMonorepoBase } from './monorepo.ts'
 import { applyReactBase } from './react.ts'
 import { applyVueBase } from './vue.ts'
 
@@ -28,6 +29,10 @@ export function selectBase({ kind, framework }: ProjectOptions): Base {
       if (framework)
         throw new ResolveError('Library projects do not use a framework')
       return applyLibraryBase
+    case 'monorepo':
+      if (framework)
+        throw new ResolveError('Monorepo roots do not use a framework')
+      return applyMonorepoBase
     default:
       throw new ResolveError(`${kind} projects are not supported yet`)
   }

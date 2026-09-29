@@ -39,6 +39,23 @@ function hookLines(ctx: Context) {
   ]
 }
 
+function workspaceSection(ctx: Context) {
+  const filter =
+    ctx.options.packageManager === 'bun'
+      ? 'bun run --filter <name> <script>'
+      : 'pnpm --filter <name> <script>'
+  return `## Workspace Layout
+
+- \`apps/*\`: applications.
+- \`packages/*\`: shared packages and libraries.
+
+Each project has its own \`.create-web.json\`; run \`create-web add\` inside a project to add project-level features (linters, tests, frameworks). Formatting, Git hooks, CI, and these docs live at the root.
+
+Root scripts run in every workspace that defines them. To target one project, use \`${filter}\`.
+
+`
+}
+
 function agentsGuide(ctx: Context) {
   return `# ${ctx.options.name}
 
@@ -50,7 +67,7 @@ Project guide for coding agents and contributors. Keep it focused on rules that 
 - \`docs/architecture.md\`: current architecture and boundaries.
 - \`docs/plan.md\`: product direction and decisions.
 
-## Commands
+${ctx.options.kind === 'monorepo' ? workspaceSection(ctx) : ''}## Commands
 
 ${managedBlock('commands', 'html')}
 
@@ -89,7 +106,7 @@ export default defineFeature({
   id: 'agent-docs',
   label: 'Agent docs',
   hint: 'AGENTS.md, CLAUDE.md, docs/plan.md, docs/architecture.md',
-  kinds: ['frontend', 'library'],
+  kinds: ['frontend', 'library', 'monorepo'],
   async apply(ctx) {
     const files: Record<string, string> = {
       'AGENTS.md': agentsGuide(ctx),

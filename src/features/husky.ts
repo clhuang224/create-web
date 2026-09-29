@@ -40,7 +40,7 @@ export default defineFeature({
   id: 'husky',
   label: 'Husky',
   hint: 'Git hooks with a Conventional Commits check',
-  kinds: ['frontend', 'library'],
+  kinds: ['frontend', 'library', 'monorepo'],
   apply(ctx) {
     ctx.pkg.addDevDependencies(pick('husky'))
     ctx.pkg.addScripts({ prepare: 'husky' })
