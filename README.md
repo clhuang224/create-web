@@ -7,7 +7,7 @@ An opinionated CLI for scaffolding web projects, and for adding features to proj
 Inspired by `create-vite` and `create-vue`, but it sets up more than a framework template: Git hooks, CI, lint and format rules, deployment, and agent instruction files (`AGENTS.md` / `CLAUDE.md`) all come preconfigured and work together.
 
 > [!WARNING]
-> This project is in early development and not published to npm yet. Only Vue frontend projects are supported so far.
+> This project is in early development and not published to npm yet. Only Vue and React frontend projects are supported so far.
 
 ## Usage
 
@@ -46,7 +46,7 @@ Some generated files (Git hooks, the CI workflow, `AGENTS.md`) contain blocks be
 | --- | --- | --- |
 | Framework | Vue / React | Svelte and Angular are planned |
 | Routing | Vue Router / React Router | Depends on the framework |
-| State Management | Pinia / Redux | Depends on the framework |
+| State Management | Pinia / Redux Toolkit | Depends on the framework |
 | Build Tool | Vite | |
 | Package Manager | pnpm / bun | Hooks, CI and scripts adapt to the choice |
 | Linter | ESLint / oxlint / both | |
@@ -58,7 +58,11 @@ Some generated files (Git hooks, the CI workflow, `AGENTS.md`) contain blocks be
 | Environment Variables | Framework built-in | dotenv for backend projects |
 | Agent Docs | `AGENTS.md` / `CLAUDE.md` | Plus `docs/plan.md` and `docs/architecture.md` skeletons |
 
-A `lynn` preset picks all of these in one step, matching the author's usual setup.
+A `lynn` preset picks all of these in one step, matching the author's usual setup. It defaults to Vue; combine it with `--framework react` to get the React equivalents:
+
+```bash
+pnpm create @clhuang224/web my-project --yes --framework react
+```
 
 ## Development
 

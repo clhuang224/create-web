@@ -7,7 +7,7 @@
 靈感來自 `create-vite` 與 `create-vue`，但它不只提供框架模板：Git hooks、CI、lint 與 format 規則、部署設定，以及給 AI agent 看的說明檔（`AGENTS.md` / `CLAUDE.md`）都會一起配置好，並且彼此搭配。
 
 > [!WARNING]
-> 這個專案還在早期開發階段，尚未發布到 npm。目前只支援 Vue 前端專案。
+> 這個專案還在早期開發階段，尚未發布到 npm。目前只支援 Vue 與 React 前端專案。
 
 ## 使用方式
 
@@ -46,7 +46,7 @@ create-web add <feature>
 | --- | --- | --- |
 | 框架 | Vue / React | Svelte 與 Angular 規劃中 |
 | 路由 | Vue Router / React Router | 依框架而定 |
-| 狀態管理 | Pinia / Redux | 依框架而定 |
+| 狀態管理 | Pinia / Redux Toolkit | 依框架而定 |
 | 建置工具 | Vite | |
 | 套件管理器 | pnpm / bun | hooks、CI 與 scripts 會跟著調整 |
 | Linter | ESLint / oxlint / 兩者並用 | |
@@ -58,7 +58,11 @@ create-web add <feature>
 | 環境變數 | 框架內建 | backend 專案使用 dotenv |
 | Agent 文件 | `AGENTS.md` / `CLAUDE.md` | 另附 `docs/plan.md` 與 `docs/architecture.md` 骨架 |
 
-`lynn` preset 會一次選好上述所有項目，也就是作者平常慣用的配置。
+`lynn` preset 會一次選好上述所有項目，也就是作者平常慣用的配置。預設是 Vue，搭配 `--framework react` 就會換成對應的 React 選項：
+
+```bash
+pnpm create @clhuang224/web my-project --yes --framework react
+```
 
 ## 開發
 
