@@ -24,3 +24,17 @@
 | SVG Sprite | svg-sprite-loader |  |
 | Commit Lint | Commitlint |  |
 | Environment Variables | dotenv / 框架內建 |  |
+
+## Usage
+
+```bash
+pnpm create @clhuang224/web my-project
+```
+
+或是全域安裝後使用：
+
+```bash
+volta install @clhuang224/create-web
+create-web create my-project
+create-web add <feature>
+```
