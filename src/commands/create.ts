@@ -5,8 +5,12 @@ import { defineCommand } from 'citty'
 import { generate } from '../core/generate.ts'
 import { ResolveError } from '../core/resolver.ts'
 import type { FeatureId, Framework, PackageManager } from '../core/types.ts'
-import { features as registry } from '../features/index.ts'
-import { type PresetName, presetFeatures, presets } from '../presets.ts'
+import {
+  compatibleFeatures,
+  type PresetName,
+  presetFeatures,
+  presets,
+} from '../presets.ts'
 import { exitIfCancelled, parseList, runProcess, showNotes } from './shared.ts'
 
 const PACKAGE_NAME = /^[a-z0-9][a-z0-9._-]*$/
@@ -110,28 +114,12 @@ export const createCommand = defineCommand({
           )
         : defaults.packageManager)) as PackageManager
 
-    const features = (parseList(args.features) ??
+    const features =
+      (parseList(args.features) as FeatureId[] | undefined) ??
       (preset ? presetFeatures(preset, framework) : undefined) ??
       (interactive
-        ? exitIfCancelled(
-            await p.multiselect<FeatureId>({
-              message: 'Features',
-              options: registry
-                .filter(
-                  (feature) =>
-                    !feature.frameworks ||
-                    feature.frameworks.includes(framework),
-                )
-                .map((feature) => ({
-                  value: feature.id,
-                  label: feature.label,
-                  hint: feature.hint,
-                })),
-              initialValues: presetFeatures(defaults, framework),
-              required: false,
-            }),
-          )
-        : presetFeatures(defaults, framework))) as FeatureId[]
+        ? await promptFeatures(presetFeatures(defaults, framework), framework)
+        : presetFeatures(defaults, framework))
 
     let pagesDomain = args['pages-domain']
     if (
@@ -209,4 +197,75 @@ async function isEmptyDir(path: string) {
   } catch {
     return true
   }
+}
+
+const LINTERS: Record<string, { label: string; ids: FeatureId[] }> = {
+  eslint: { label: 'ESLint', ids: ['eslint'] },
+  oxlint: { label: 'oxlint', ids: ['oxlint'] },
+  both: { label: 'oxlint + ESLint', ids: ['oxlint', 'eslint'] },
+  none: { label: 'None', ids: [] },
+}
+
+const FORMATTERS: Record<string, { label: string; ids: FeatureId[] }> = {
+  prettier: { label: 'Prettier', ids: ['prettier'] },
+  oxfmt: { label: 'oxfmt', ids: ['oxfmt'] },
+  none: { label: 'None', ids: [] },
+}
+
+/** Linter and formatter are single choices; everything else is a checklist. */
+async function promptFeatures(initial: FeatureId[], framework: Framework) {
+  const initialChoice = (choices: typeof LINTERS) =>
+    Object.entries(choices).find(
+      ([, { ids }]) =>
+        ids.length > 0 && ids.every((id) => initial.includes(id)),
+    )?.[0] ?? 'none'
+
+  const linter = exitIfCancelled(
+    await p.select({
+      message: 'Linter',
+      options: Object.entries(LINTERS).map(([value, { label }]) => ({
+        value,
+        label,
+      })),
+      initialValue: initialChoice(
+        Object.fromEntries(
+          Object.entries(LINTERS).sort(
+            ([, a], [, b]) => b.ids.length - a.ids.length,
+          ),
+        ),
+      ),
+    }),
+  )
+  const formatter = exitIfCancelled(
+    await p.select({
+      message: 'Formatter',
+      options: Object.entries(FORMATTERS).map(([value, { label }]) => ({
+        value,
+        label,
+      })),
+      initialValue: initialChoice(FORMATTERS),
+    }),
+  )
+  const others = compatibleFeatures(framework).filter(
+    (feature) => !feature.category,
+  )
+  const selected = exitIfCancelled(
+    await p.multiselect<FeatureId>({
+      message: 'Features',
+      options: others.map((feature) => ({
+        value: feature.id,
+        label: feature.label,
+        hint: feature.hint,
+      })),
+      initialValues: others
+        .map((feature) => feature.id)
+        .filter((id) => initial.includes(id)),
+      required: false,
+    }),
+  )
+  return [
+    ...(LINTERS[linter]?.ids ?? []),
+    ...(FORMATTERS[formatter]?.ids ?? []),
+    ...selected,
+  ]
 }
