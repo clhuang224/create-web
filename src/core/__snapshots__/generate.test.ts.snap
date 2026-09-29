@@ -39,6 +39,34 @@ exports[`generate (create) > produces the expected files for the lynn preset 1`]
 ]
 `;
 
+exports[`generate (create, library) > produces the expected files for the lynn preset 1`] = `
+[
+  ".create-web.json",
+  ".editorconfig",
+  ".github/actions/setup-pnpm/action.yml",
+  ".github/workflows/ci.yml",
+  ".github/workflows/publish.yml",
+  ".gitignore",
+  ".husky/commit-msg",
+  ".husky/pre-commit",
+  ".husky/pre-push",
+  ".prettierignore",
+  ".prettierrc",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "README.md",
+  "docs/architecture.md",
+  "docs/plan.md",
+  "eslint.config.js",
+  "package.json",
+  "src/index.test.ts",
+  "src/index.ts",
+  "tsconfig.json",
+  "tsdown.config.ts",
+  "vitest.config.ts",
+]
+`;
+
 exports[`generate (create, react) > produces the expected files for the lynn preset 1`] = `
 [
   ".create-web.json",

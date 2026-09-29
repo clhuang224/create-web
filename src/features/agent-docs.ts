@@ -13,8 +13,17 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   test: 'run unit tests',
 }
 
+const LIBRARY_COMMAND_DESCRIPTIONS: Record<string, string> = {
+  dev: 'rebuild on change',
+  build: 'build the package into dist/',
+}
+
 function commandLines(ctx: Context) {
-  return Object.entries(COMMAND_DESCRIPTIONS)
+  const descriptions =
+    ctx.options.kind === 'library'
+      ? { ...COMMAND_DESCRIPTIONS, ...LIBRARY_COMMAND_DESCRIPTIONS }
+      : COMMAND_DESCRIPTIONS
+  return Object.entries(descriptions)
     .filter(([script]) => ctx.pkg.hasScript(script))
     .map(([script, description]) => `- \`${ctx.run(script)}\`: ${description}`)
 }
@@ -80,7 +89,7 @@ export default defineFeature({
   id: 'agent-docs',
   label: 'Agent docs',
   hint: 'AGENTS.md, CLAUDE.md, docs/plan.md, docs/architecture.md',
-  kinds: ['frontend'],
+  kinds: ['frontend', 'library'],
   async apply(ctx) {
     const files: Record<string, string> = {
       'AGENTS.md': agentsGuide(ctx),

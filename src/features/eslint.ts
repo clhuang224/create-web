@@ -73,18 +73,53 @@ function reactConfig({ skipFormatting, oxlint }: Options) {
   )
 }
 
+function typescriptConfig({ skipFormatting, oxlint }: Options) {
+  return lines(
+    "import js from '@eslint/js'",
+    "import { defineConfig, globalIgnores } from 'eslint/config'",
+    skipFormatting &&
+      "import skipFormatting from 'eslint-config-prettier/flat'",
+    oxlint && "import pluginOxlint from 'eslint-plugin-oxlint'",
+    "import globals from 'globals'",
+    "import tseslint from 'typescript-eslint'",
+    '',
+    'export default defineConfig(',
+    "  globalIgnores(['**/dist/**', '**/coverage/**']),",
+    '  {',
+    "    files: ['**/*.ts'],",
+    '    extends: [js.configs.recommended, tseslint.configs.recommended],',
+    '    languageOptions: {',
+    '      globals: globals.node,',
+    '    },',
+    '  },',
+    oxlint &&
+      `  ...pluginOxlint.buildFromOxlintConfigFile('${OXLINT_CONFIG}'),`,
+    skipFormatting && '  skipFormatting,',
+    ')',
+    '',
+  )
+}
+
+const configs = {
+  vue: vueConfig,
+  react: reactConfig,
+  none: typescriptConfig,
+}
+
 function addDependencies(ctx: Context, { skipFormatting, oxlint }: Options) {
   ctx.pkg.addDevDependencies({
-    ...(ctx.options.framework === 'react'
-      ? pick(
-          'eslint',
-          '@eslint/js',
-          'typescript-eslint',
-          'eslint-plugin-react-hooks',
-          'eslint-plugin-react-refresh',
-          'globals',
-        )
-      : pick('eslint', 'eslint-plugin-vue', '@vue/eslint-config-typescript')),
+    ...{
+      vue: pick('eslint', 'eslint-plugin-vue', '@vue/eslint-config-typescript'),
+      react: pick(
+        'eslint',
+        '@eslint/js',
+        'typescript-eslint',
+        'eslint-plugin-react-hooks',
+        'eslint-plugin-react-refresh',
+        'globals',
+      ),
+      none: pick('eslint', '@eslint/js', 'typescript-eslint', 'globals'),
+    }[ctx.options.framework ?? 'none'],
     ...(skipFormatting ? pick('eslint-config-prettier') : {}),
     ...(oxlint ? pick('eslint-plugin-oxlint') : {}),
   })
@@ -93,7 +128,7 @@ function addDependencies(ctx: Context, { skipFormatting, oxlint }: Options) {
 export default defineFeature({
   id: 'eslint',
   label: 'ESLint',
-  kinds: ['frontend'],
+  kinds: ['frontend', 'library'],
   frameworks: ['vue', 'react'],
   category: 'linter',
   apply() {},
@@ -106,10 +141,7 @@ export default defineFeature({
       skipFormatting: ctx.has('prettier') || ctx.has('oxfmt'),
       oxlint: ctx.has('oxlint'),
     }
-    const next =
-      ctx.options.framework === 'react'
-        ? reactConfig(options)
-        : vueConfig(options)
+    const next = configs[ctx.options.framework ?? 'none'](options)
     const current = await ctx.fs.read(CONFIG)
     if (current !== undefined && current === (await formatSource(CONFIG, next)))
       return

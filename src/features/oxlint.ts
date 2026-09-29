@@ -8,7 +8,7 @@ const CONFIG = '.oxlintrc.json'
 export default defineFeature({
   id: 'oxlint',
   label: 'oxlint',
-  kinds: ['frontend'],
+  kinds: ['frontend', 'library'],
   frameworks: ['vue', 'react'],
   category: 'linter',
   apply(ctx) {
@@ -24,10 +24,10 @@ export default defineFeature({
         'typescript',
         'unicorn',
         'oxc',
-        ctx.options.framework,
+        ...(ctx.options.framework ? [ctx.options.framework] : []),
         ...(ctx.has('vitest') ? ['vitest'] : []),
       ],
-      env: { browser: true },
+      env: ctx.options.kind === 'library' ? { node: true } : { browser: true },
       categories: { correctness: 'error' },
     }
     const next = `${JSON.stringify(config, null, 2)}\n`

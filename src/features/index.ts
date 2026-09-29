@@ -8,6 +8,7 @@ import oxfmt from './oxfmt.ts'
 import oxlint from './oxlint.ts'
 import pinia from './pinia.ts'
 import prettier from './prettier.ts'
+import publish from './publish.ts'
 import reactRouter from './react-router.ts'
 import redux from './redux.ts'
 import tailwind from './tailwind.ts'
@@ -29,5 +30,6 @@ export const features: readonly Feature[] = [
   husky,
   githubActions,
   githubPages,
+  publish,
   agentDocs,
 ]

@@ -288,3 +288,60 @@ describe('oxlint and oxfmt', () => {
     expect(notes[0]).toContain('buildFromOxlintConfigFile')
   })
 })
+
+describe('generate (create, library)', () => {
+  const library: ProjectOptions = {
+    name: '@scope/demo-lib',
+    kind: 'library',
+    packageManager: 'pnpm',
+    features: presetFeatures(presets.lynn, 'library'),
+  }
+
+  it('produces the expected files for the lynn preset', async () => {
+    const { fs, notes } = await generate({
+      root,
+      mode: 'create',
+      options: library,
+    })
+    expect(notes).toHaveLength(2)
+    expect(fs.changedPaths()).toMatchSnapshot()
+  })
+
+  it('writes a publishable package.json', async () => {
+    const { fs } = await generate({ root, mode: 'create', options: library })
+    const pkg = JSON.parse((await fs.read('package.json')) ?? '{}')
+    expect(pkg).toMatchObject({
+      name: '@scope/demo-lib',
+      files: ['dist'],
+      exports: {
+        '.': { types: './dist/index.d.ts', import: './dist/index.js' },
+      },
+      publishConfig: { access: 'public' },
+    })
+    expect(pkg.scripts.prepublishOnly).toBe('pnpm run build')
+    expect(await fs.read('eslint.config.js')).toContain('globals.node')
+    expect(await fs.read('AGENTS.md')).toContain(
+      '`pnpm run dev`: rebuild on change',
+    )
+    expect(await fs.read('.github/workflows/publish.yml')).toContain(
+      'npm publish',
+    )
+  })
+
+  it('rejects frontend-only features and frameworks', async () => {
+    await expect(
+      generate({
+        root,
+        mode: 'create',
+        options: { ...library, features: ['tailwind'] },
+      }),
+    ).rejects.toThrow(/does not support library/)
+    await expect(
+      generate({
+        root,
+        mode: 'create',
+        options: { ...library, framework: 'vue' },
+      }),
+    ).rejects.toThrow(/do not use a framework/)
+  })
+})

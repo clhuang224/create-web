@@ -10,7 +10,7 @@ export const prettierOptions = {
 export default defineFeature({
   id: 'prettier',
   label: 'Prettier',
-  kinds: ['frontend'],
+  kinds: ['frontend', 'library'],
   category: 'formatter',
   conflicts: ['oxfmt'],
   apply(ctx) {

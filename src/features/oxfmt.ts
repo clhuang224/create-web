@@ -5,7 +5,7 @@ import { prettierOptions } from './prettier.ts'
 export default defineFeature({
   id: 'oxfmt',
   label: 'oxfmt',
-  kinds: ['frontend'],
+  kinds: ['frontend', 'library'],
   category: 'formatter',
   conflicts: ['prettier'],
   apply(ctx) {

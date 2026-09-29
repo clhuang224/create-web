@@ -11,10 +11,16 @@ export default defineFeature({
   id: 'vitest',
   label: 'Vitest',
   hint: 'unit tests',
-  kinds: ['frontend'],
+  kinds: ['frontend', 'library'],
   frameworks: ['vue', 'react'],
   async apply(ctx) {
     ctx.pkg.addScripts({ test: 'vitest run', 'test:watch': 'vitest' })
+
+    if (ctx.options.kind === 'library') {
+      ctx.pkg.addDevDependencies(pick('vitest'))
+      await copyTemplate(ctx, 'vitest-library')
+      return
+    }
 
     if (ctx.options.framework === 'react') {
       ctx.pkg.addDevDependencies(
