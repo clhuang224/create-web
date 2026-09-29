@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+commit_message_file="$1"
+header="$(sed -n '1p' "$commit_message_file")"
+
+conventional_commit_pattern='^(feat|fix|docs|refactor|test|chore|build|ci|style|perf)(\([a-z0-9-]+\))?!?: .+$'
+
+if ! printf '%s\n' "$header" | grep -Eq "$conventional_commit_pattern"; then
+  echo "Invalid commit message header."
+  echo "Use Conventional Commits: <type>[optional scope]: <description>"
+  echo "Example: feat(create): add vue base template"
+  exit 1
+fi

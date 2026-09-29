@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+if git diff --cached --quiet -- . ':(exclude)*.md' ':(exclude)docs'; then
+  echo "Only documentation files staged. Skipping checks."
+  exit 0
+fi
+
+pnpm run lint
+pnpm run typecheck
+pnpm run format:check
