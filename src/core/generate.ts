@@ -1,10 +1,10 @@
-import { bases } from '../bases/index.ts'
+import { selectBase } from '../bases/index.ts'
 import { features as registry } from '../features/index.ts'
 import type { Context, Mode } from './context.ts'
 import { formatChangedFiles } from './format.ts'
 import { hashContent, readManifest, writeManifest } from './manifest.ts'
 import { PackageJsonEditor } from './package-json.ts'
-import { ResolveError, resolveFeatures } from './resolver.ts'
+import { resolveFeatures } from './resolver.ts'
 import type { FeatureId, ProjectOptions } from './types.ts'
 import { VirtualFs } from './vfs.ts'
 
@@ -28,10 +28,7 @@ export async function generate({
   options,
   existing = [],
 }: GenerateInput): Promise<GenerateResult> {
-  if (options.kind !== 'frontend')
-    throw new ResolveError(`${options.kind} projects are not supported yet`)
-  if (!Object.hasOwn(bases, options.framework))
-    throw new ResolveError(`Unknown framework: ${options.framework}`)
+  const applyBase = selectBase(options)
 
   const resolved = resolveFeatures(registry, {
     kind: options.kind,
@@ -65,7 +62,7 @@ export async function generate({
     },
   }
 
-  if (mode === 'create') await bases[options.framework](ctx)
+  if (mode === 'create') await applyBase(ctx)
   for (const feature of toApply) await feature.apply(ctx)
   for (const feature of resolved) await feature.sync?.(ctx)
 

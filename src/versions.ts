@@ -16,6 +16,7 @@ export const versions = {
   '@vue/tsconfig': '^0.9.1',
   '@tsconfig/node24': '^24.0.5',
   typescript: '~6.0.3',
+  tsdown: '^0.23.0',
 
   react: '^19.3.0',
   'react-dom': '^19.3.0',

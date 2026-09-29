@@ -12,7 +12,7 @@ const lynn: ProjectOptions = {
   name: 'demo',
   kind: 'frontend',
   ...presets.lynn,
-  features: presetFeatures(presets.lynn, 'vue'),
+  features: presetFeatures(presets.lynn, 'frontend', 'vue'),
 }
 
 let root: string
@@ -82,7 +82,7 @@ describe('generate (create, react)', () => {
   const react: ProjectOptions = {
     ...lynn,
     framework: 'react',
-    features: presetFeatures(presets.lynn, 'react'),
+    features: presetFeatures(presets.lynn, 'frontend', 'react'),
   }
 
   it('produces the expected files for the lynn preset', async () => {

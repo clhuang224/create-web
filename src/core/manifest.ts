@@ -31,7 +31,7 @@ export function writeManifest(
   const manifest: Manifest = {
     version: pkg.version,
     kind: options.kind,
-    framework: options.framework,
+    ...(options.framework ? { framework: options.framework } : {}),
     packageManager: options.packageManager,
     features: options.features,
     ...(options.pagesDomain ? { pagesDomain: options.pagesDomain } : {}),

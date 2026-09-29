@@ -6,7 +6,10 @@ export interface Feature {
   label: string
   hint?: string
   kinds: ProjectKind[]
-  /** Frameworks this feature supports; omitted means framework-agnostic. */
+  /**
+   * Frameworks this feature supports; omitted means framework-agnostic.
+   * Only checked for projects that have a framework.
+   */
   frameworks?: Framework[]
   /** Features that must be present; they are added automatically. */
   requires?: FeatureId[]

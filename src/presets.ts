@@ -1,10 +1,16 @@
-import type { FeatureId, Framework, PackageManager } from './core/types.ts'
+import type {
+  FeatureId,
+  Framework,
+  PackageManager,
+  ProjectKind,
+} from './core/types.ts'
 import { features } from './features/index.ts'
 
 export interface Preset {
+  /** Framework used for frontend projects when none is given. */
   framework: Framework
   packageManager: PackageManager
-  /** Omitted: every feature that supports the chosen framework, minus `exclude`. */
+  /** Omitted: every feature that supports the project, minus `exclude`. */
   features?: FeatureId[]
   exclude?: FeatureId[]
 }
@@ -23,18 +29,23 @@ export type PresetName = keyof typeof presets
 
 export function presetFeatures(
   preset: Preset,
-  framework: Framework,
+  kind: ProjectKind,
+  framework?: Framework,
 ): FeatureId[] {
   return (
     preset.features ??
-    compatibleFeatures(framework)
+    compatibleFeatures(kind, framework)
       .map((feature) => feature.id)
       .filter((id) => !preset.exclude?.includes(id))
   )
 }
 
-export function compatibleFeatures(framework: Framework) {
+export function compatibleFeatures(kind: ProjectKind, framework?: Framework) {
   return features.filter(
-    (feature) => !feature.frameworks || feature.frameworks.includes(framework),
+    (feature) =>
+      feature.kinds.includes(kind) &&
+      (!feature.frameworks ||
+        !framework ||
+        feature.frameworks.includes(framework)),
   )
 }

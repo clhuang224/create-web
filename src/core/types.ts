@@ -18,12 +18,14 @@ export type FeatureId =
   | 'husky'
   | 'github-actions'
   | 'github-pages'
+  | 'publish'
   | 'agent-docs'
 
 export interface ProjectOptions {
   name: string
   kind: ProjectKind
-  framework: Framework
+  /** UI framework; only frontend projects have one. */
+  framework?: Framework
   packageManager: PackageManager
   features: FeatureId[]
   /** Custom domain for GitHub Pages; when omitted, the repository name is used as the base path. */

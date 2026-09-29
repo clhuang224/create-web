@@ -5,7 +5,7 @@ export class ResolveError extends Error {}
 
 export interface ResolveInput {
   kind: ProjectKind
-  framework: Framework
+  framework?: Framework
   features: FeatureId[]
 }
 
@@ -29,7 +29,11 @@ export function resolveFeatures(
         `Feature "${id}" does not support ${input.kind} projects`,
       )
     }
-    if (feature.frameworks && !feature.frameworks.includes(input.framework)) {
+    if (
+      feature.frameworks &&
+      input.framework &&
+      !feature.frameworks.includes(input.framework)
+    ) {
       throw new ResolveError(
         `Feature "${id}" does not support ${input.framework}`,
       )

@@ -4,7 +4,12 @@ import * as p from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { generate } from '../core/generate.ts'
 import { ResolveError } from '../core/resolver.ts'
-import type { FeatureId, Framework, PackageManager } from '../core/types.ts'
+import type {
+  FeatureId,
+  Framework,
+  PackageManager,
+  ProjectKind,
+} from '../core/types.ts'
 import {
   compatibleFeatures,
   type PresetName,
@@ -14,6 +19,10 @@ import {
 import { exitIfCancelled, parseList, runProcess, showNotes } from './shared.ts'
 
 const PACKAGE_NAME = /^[a-z0-9][a-z0-9._-]*$/
+const SCOPED_PACKAGE_NAME = /^@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/
+
+const isValidPackageName = (name: string) =>
+  PACKAGE_NAME.test(name) || SCOPED_PACKAGE_NAME.test(name)
 
 export const createCommand = defineCommand({
   meta: { name: 'create', description: 'Create a new project' },
@@ -27,7 +36,15 @@ export const createCommand = defineCommand({
       type: 'string',
       description: `Use a preset (${Object.keys(presets).join(', ')})`,
     },
-    framework: { type: 'string', description: 'vue' },
+    kind: { type: 'string', description: 'Project kind: frontend or library' },
+    name: {
+      type: 'string',
+      description: 'Package name (defaults to the directory name)',
+    },
+    framework: {
+      type: 'string',
+      description: 'Frontend framework: vue or react',
+    },
     pm: { type: 'string', description: 'Package manager: pnpm or bun' },
     features: { type: 'string', description: 'Comma-separated feature ids' },
     'pages-domain': {
@@ -60,40 +77,90 @@ export const createCommand = defineCommand({
     const interactive = !args.yes && !preset && process.stdin.isTTY
     const defaults = preset ?? presets.lynn
 
+    const kind = (args.kind ??
+      (interactive
+        ? exitIfCancelled(
+            await p.select<ProjectKind>({
+              message: 'Project kind',
+              options: [
+                { value: 'frontend', label: 'Frontend', hint: 'Vite SPA' },
+                { value: 'library', label: 'Library', hint: 'npm package' },
+                {
+                  value: 'backend',
+                  label: 'Backend',
+                  hint: 'coming soon',
+                  disabled: true,
+                },
+                {
+                  value: 'monorepo',
+                  label: 'Monorepo',
+                  hint: 'coming soon',
+                  disabled: true,
+                },
+              ],
+            }),
+          )
+        : 'frontend')) as ProjectKind
+    if (kind !== 'frontend' && args.framework !== undefined) {
+      return fail('--framework only applies to frontend projects')
+    }
+
+    const placeholder = kind === 'library' ? 'my-lib' : 'my-app'
     const dir =
       args.dir ??
       (interactive
         ? exitIfCancelled(
             await p.text({
               message: 'Project directory',
-              placeholder: 'my-app',
-              defaultValue: 'my-app',
+              placeholder,
+              defaultValue: placeholder,
               validate: (value) =>
                 !value || PACKAGE_NAME.test(basename(value))
                   ? undefined
                   : 'Use lowercase letters, digits, ".", "-" or "_"',
             }),
           )
-        : 'my-app')
+        : placeholder)
     const root = resolve(dir)
-    const name = basename(root)
-    if (!PACKAGE_NAME.test(name)) return fail(`Invalid package name: ${name}`)
+    if (!PACKAGE_NAME.test(basename(root)))
+      return fail(`Invalid directory name: ${basename(root)}`)
     if (!(await isEmptyDir(root)))
       return fail(`${dir} already exists and is not empty.`)
 
-    const framework = (args.framework ??
-      preset?.framework ??
-      (interactive
+    // Libraries are often scoped (@scope/name), so their package name can differ from the directory.
+    const name =
+      args.name ??
+      (interactive && kind === 'library'
         ? exitIfCancelled(
-            await p.select<Framework>({
-              message: 'Framework',
-              options: [
-                { value: 'vue', label: 'Vue' },
-                { value: 'react', label: 'React' },
-              ],
+            await p.text({
+              message: 'Package name',
+              placeholder: basename(root),
+              defaultValue: basename(root),
+              validate: (value) =>
+                !value || isValidPackageName(value)
+                  ? undefined
+                  : 'Use a valid npm package name, optionally scoped',
             }),
           )
-        : defaults.framework)) as Framework
+        : basename(root))
+    if (!isValidPackageName(name)) return fail(`Invalid package name: ${name}`)
+
+    const framework =
+      kind === 'frontend'
+        ? ((args.framework ??
+            preset?.framework ??
+            (interactive
+              ? exitIfCancelled(
+                  await p.select<Framework>({
+                    message: 'Framework',
+                    options: [
+                      { value: 'vue', label: 'Vue' },
+                      { value: 'react', label: 'React' },
+                    ],
+                  }),
+                )
+              : defaults.framework)) as Framework)
+        : undefined
 
     const packageManager = (args.pm ??
       preset?.packageManager ??
@@ -111,10 +178,14 @@ export const createCommand = defineCommand({
 
     const features =
       (parseList(args.features) as FeatureId[] | undefined) ??
-      (preset ? presetFeatures(preset, framework) : undefined) ??
+      (preset ? presetFeatures(preset, kind, framework) : undefined) ??
       (interactive
-        ? await promptFeatures(presetFeatures(defaults, framework), framework)
-        : presetFeatures(defaults, framework))
+        ? await promptFeatures(
+            presetFeatures(defaults, kind, framework),
+            kind,
+            framework,
+          )
+        : presetFeatures(defaults, kind, framework))
 
     let pagesDomain = args['pages-domain']
     if (
@@ -139,7 +210,7 @@ export const createCommand = defineCommand({
         mode: 'create',
         options: {
           name,
-          kind: 'frontend',
+          kind,
           framework,
           packageManager,
           features,
@@ -208,7 +279,11 @@ const FORMATTERS: Record<string, { label: string; ids: FeatureId[] }> = {
 }
 
 /** Linter and formatter are single choices; everything else is a checklist. */
-async function promptFeatures(initial: FeatureId[], framework: Framework) {
+async function promptFeatures(
+  initial: FeatureId[],
+  kind: ProjectKind,
+  framework: Framework | undefined,
+) {
   const initialChoice = (choices: typeof LINTERS) =>
     Object.entries(choices).find(
       ([, { ids }]) =>
@@ -241,7 +316,7 @@ async function promptFeatures(initial: FeatureId[], framework: Framework) {
       initialValue: initialChoice(FORMATTERS),
     }),
   )
-  const others = compatibleFeatures(framework).filter(
+  const others = compatibleFeatures(kind, framework).filter(
     (feature) => !feature.category,
   )
   const selected = exitIfCancelled(

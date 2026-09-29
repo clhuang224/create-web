@@ -6,7 +6,7 @@ import { PackageJsonEditor } from '../core/package-json.ts'
 import { ResolveError } from '../core/resolver.ts'
 import type { FeatureId } from '../core/types.ts'
 import { VirtualFs } from '../core/vfs.ts'
-import { features as registry } from '../features/index.ts'
+import { compatibleFeatures } from '../presets.ts'
 import { exitIfCancelled, runProcess, showNotes } from './shared.ts'
 
 export const addCommand = defineCommand({
@@ -46,13 +46,10 @@ export const addCommand = defineCommand({
 
     let requested = args._.map(String) as FeatureId[]
     if (requested.length === 0) {
-      const available = registry.filter(
-        (feature) =>
-          !manifest.features.includes(feature.id) &&
-          feature.kinds.includes(manifest.kind) &&
-          (!feature.frameworks ||
-            feature.frameworks.includes(manifest.framework)),
-      )
+      const available = compatibleFeatures(
+        manifest.kind,
+        manifest.framework,
+      ).filter((feature) => !manifest.features.includes(feature.id))
       if (available.length === 0)
         return done('Every available feature is already applied.')
       if (!process.stdin.isTTY) return fail('Pass the feature ids to add.')
