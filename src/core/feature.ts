@@ -10,6 +10,10 @@ export interface Feature {
   frameworks?: Framework[]
   /** Features that must be present; they are added automatically. */
   requires?: FeatureId[]
+  /** Features that cannot be used together with this one. */
+  conflicts?: FeatureId[]
+  /** Linters and formatters get their own prompts instead of the feature list. */
+  category?: 'linter' | 'formatter'
   /** Features that, when present, must be applied before this one. */
   after?: FeatureId[]
   apply(ctx: Context): void | Promise<void>

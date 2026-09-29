@@ -39,6 +39,16 @@ export function resolveFeatures(
   }
   input.features.forEach(select)
 
+  for (const id of selected) {
+    const conflict = byId
+      .get(id)
+      ?.conflicts?.find((other) => selected.has(other))
+    if (conflict)
+      throw new ResolveError(
+        `Features "${id}" and "${conflict}" cannot be used together`,
+      )
+  }
+
   const ordered: Feature[] = []
   const visiting = new Set<FeatureId>()
   const visited = new Set<FeatureId>()

@@ -15,6 +15,8 @@ const registry = [
   feature({ id: 'eslint', frameworks: ['vue'] }),
   feature({ id: 'github-pages', requires: ['github-actions'] }),
   feature({ id: 'github-actions' }),
+  feature({ id: 'prettier', conflicts: ['oxfmt'] }),
+  feature({ id: 'oxfmt' }),
 ]
 
 const ids = (features: Feature[]) => features.map((f) => f.id)
@@ -69,5 +71,15 @@ describe('resolveFeatures', () => {
         features: ['pinia'],
       }),
     ).toThrow(/Unknown feature/)
+  })
+
+  it('rejects conflicting features in either direction', () => {
+    expect(() =>
+      resolveFeatures(registry, {
+        kind: 'frontend',
+        framework: 'vue',
+        features: ['oxfmt', 'prettier'],
+      }),
+    ).toThrow(/cannot be used together/)
   })
 })
