@@ -69,7 +69,7 @@ prompts / flags / preset
 - **Feature modules**: each declares `id`, `kinds`, `requires`, `conflicts`, `detect(ctx)` and `apply(ctx)`. `apply` adds dependencies, scripts and files through the context API rather than writing to disk directly.
 - **Shared files** (`package.json`, `vite.config.ts`, `eslint.config.*`, `.husky/*`, CI workflows): built from structured data contributed by features during `create`. During `add`, existing files are edited with AST tooling (e.g. magicast); when an edit cannot be made safely, print manual instructions instead of guessing.
 - Prefer features that own separate config files (e.g. `vitest.config.ts` apart from `vite.config.ts`) to reduce edits to shared files.
-- **Manifest**: generated projects record their choices in a small manifest file so `add` can rely on it. `add` is only guaranteed on projects with a manifest; projects without one fall back to detection (best effort).
+- **Manifest** (`.create-web.json`): generated projects record their choices in a small manifest file so `add` can rely on it. `add` is only guaranteed on projects with a manifest; projects without one fall back to detection (best effort).
 - **Entry routing**: `pnpm create @clhuang224/web my-app` invokes the bin as `create-web my-app`, so a first argument that is not a known subcommand must be routed to `create`. citty's `default` subcommand only covers the no-argument case, so this needs a small pre-parse in `src/cli.ts`.
 - **Presets**: named option sets; `lynn` reproduces the author's usual setup in one step. Every prompt also has a CLI flag so generation is scriptable and testable.
 
@@ -93,12 +93,17 @@ Derived from `bus`, `queener` and `milestone-checker`:
 
 ## Roadmap
 
-1. `frontend` kind: Vue and React SPA, `lynn` preset, pnpm and bun.
-2. `add` command for features on existing frontend projects.
+1. `frontend` kind: Vue and React SPA, `lynn` preset, pnpm and bun. Vue is done; React is next.
+2. `add` command for features on existing frontend projects. Done for projects with a manifest; detection-based fallback is not implemented.
 3. `library` kind.
 4. `monorepo` kind composing frontend and library.
 5. `backend` kind.
 6. Deferred items below.
+
+## Known Limitations
+
+- Hooks and CI workflows are generated from the scripts present at the time. Adding e.g. `vitest` after `husky` does not update `pre-push`; re-running those features is not supported yet.
+- oxlint and oxfmt options, and `@clhuang224/vite-plugin-svg-sprite`, are not implemented yet.
 
 ## Deferred
 

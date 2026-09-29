@@ -10,6 +10,29 @@ This repository is `@clhuang224/create-web`, a personal CLI that scaffolds web p
 
 Record new architecture decisions in `docs/plan.md` instead of scattering them across code comments.
 
+## Code Layout
+
+```text
+src/
+├── cli.ts          # Entry; routes `create-web <dir>` to `create`
+├── commands/       # `create` and `add` (prompts, flags, install)
+├── core/           # Pipeline: resolver, virtual fs, context, manifest, formatting
+├── bases/          # Base project per framework (create only)
+├── features/       # Feature modules; `index.ts` is the registry
+├── editors/        # Safe edits to shared files (vite config, main.ts, JSON)
+├── presets.ts
+└── versions.ts     # Pinned dependency versions for generated projects
+templates/          # Files copied into generated projects
+```
+
+## Adding A Feature
+
+1. Create `src/features/<id>.ts` with `defineFeature`, add the id to `FeatureId`, and register it in `src/features/index.ts`.
+2. Put static files under `templates/<name>/` and copy them with `copyTemplate`. A single leading `_` in a file name becomes `.` (npm drops dotfiles like `.gitignore` on publish).
+3. Edit shared files only through `src/editors/`. When an edit cannot be made safely (e.g. the user changed the file), call `ctx.note` with a manual step instead of overwriting.
+4. Add new dependency versions to `src/versions.ts`.
+5. Cover it in `src/core/generate.test.ts` and run `pnpm run e2e`.
+
 ## Commands
 
 - `pnpm run build`: bundle the CLI into `dist/` with tsdown
@@ -18,6 +41,7 @@ Record new architecture decisions in `docs/plan.md` instead of scattering them a
 - `pnpm run typecheck`
 - `pnpm run format` / `pnpm run format:check`
 - `pnpm run test`
+- `pnpm run e2e`: generate a project with the lynn preset in a temp dir and run its lint, typecheck, format check, tests and build
 
 Try the built CLI with `node dist/cli.mjs`.
 
