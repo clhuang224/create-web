@@ -17,7 +17,7 @@ Product and architecture direction for Web Starter CLI. Record decisions here; k
 
 | Topic               | Decision                                                                                                                                |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Audience            | Author only; opinionated defaults                                                                                                       |
+| Audience            | Author first; opinionated defaults. Public docs are written for other users too                                                          |
 | Output shape        | Single project first; monorepo later (see Roadmap)                                                                                      |
 | Existing projects   | Supported via `add <feature>`                                                                                                           |
 | Dependency versions | Pinned in the tool, bumped manually                                                                                                     |
@@ -26,6 +26,8 @@ Product and architecture direction for Web Starter CLI. Record decisions here; k
 | Commit lint         | Plain shell `commit-msg` hook (Conventional Commits regex), as used in `bus` and `queener`; Commitlint optional at most                 |
 | SVG sprite          | `@clhuang224/vite-plugin-svg-sprite` (not `svg-sprite-loader`, which is webpack-only); requires generating `.npmrc` for GitHub Packages |
 | Env variables       | Framework/Vite built-in for frontend; dotenv only for Node/backend kinds                                                                |
+| Global dotfiles | Referenced, never installed. `create-web` only writes inside the project directory. Generated `AGENTS.md` / `CLAUDE.md` may point to `clhuang224/dotfiles` for general habits, but must stay self-contained for rules the project enforces (e.g. commit format checked by hooks), since cloud sessions, CI agents and other contributors do not have the dotfiles |
+| License | MIT |
 
 ## Architecture
 
