@@ -1,6 +1,6 @@
 {
   "name": "@clhuang224/create-web",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "Scaffold web projects and add features to existing ones with my own conventions.",
   "type": "module",
   "bin": {
