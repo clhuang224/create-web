@@ -89,12 +89,7 @@ export const createCommand = defineCommand({
               message: 'Framework',
               options: [
                 { value: 'vue', label: 'Vue' },
-                {
-                  value: 'react',
-                  label: 'React',
-                  hint: 'coming soon',
-                  disabled: true,
-                },
+                { value: 'react', label: 'React' },
               ],
             }),
           )
