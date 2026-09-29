@@ -6,6 +6,7 @@ import { PackageJsonEditor } from '../core/package-json.ts'
 import { ResolveError } from '../core/resolver.ts'
 import type { FeatureId } from '../core/types.ts'
 import { VirtualFs } from '../core/vfs.ts'
+import { memberCandidates } from '../core/workspace.ts'
 import { compatibleFeatures } from '../presets.ts'
 import { exitIfCancelled, runProcess, showNotes } from './shared.ts'
 
@@ -46,10 +47,15 @@ export const addCommand = defineCommand({
 
     let requested = args._.map(String) as FeatureId[]
     if (requested.length === 0) {
-      const available = compatibleFeatures(
-        manifest.kind,
-        manifest.framework,
-      ).filter((feature) => !manifest.features.includes(feature.id))
+      // Inside a monorepo member, root-owned features are added at the root instead.
+      const candidates =
+        manifest.workspace &&
+        (manifest.kind === 'frontend' || manifest.kind === 'library')
+          ? memberCandidates(manifest.kind, manifest.framework)
+          : compatibleFeatures(manifest.kind, manifest.framework)
+      const available = candidates.filter(
+        (feature) => !manifest.features.includes(feature.id),
+      )
       if (available.length === 0)
         return done('Every available feature is already applied.')
       if (!process.stdin.isTTY) return fail('Pass the feature ids to add.')
@@ -70,8 +76,16 @@ export const addCommand = defineCommand({
       result = await generate({
         root,
         mode: 'add',
-        options: { ...manifest, name, features: requested },
+        options: {
+          name,
+          kind: manifest.kind,
+          framework: manifest.framework,
+          packageManager: manifest.packageManager,
+          features: requested,
+          pagesDomain: manifest.pagesDomain,
+        },
         existing: manifest.features,
+        workspace: manifest.workspace,
       })
     } catch (error) {
       if (error instanceof ResolveError) return fail(error.message)

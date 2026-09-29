@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from 'citty'
 import pkg from '../package.json' with { type: 'json' }
+import { addMemberCommand } from './commands/add-member.ts'
 import { addCommand } from './commands/add.ts'
 import { createCommand } from './commands/create.ts'
 
-const subCommands = { create: createCommand, add: addCommand }
+const subCommands = {
+  create: createCommand,
+  add: addCommand,
+  'add-member': addMemberCommand,
+}
 
 const main = defineCommand({
   meta: {

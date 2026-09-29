@@ -4,18 +4,28 @@ import * as p from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { generate } from '../core/generate.ts'
 import { ResolveError } from '../core/resolver.ts'
+import {
+  generateWorkspace,
+  type MemberSpec,
+  splitWorkspaceFeatures,
+  type WorkspaceResult,
+  workspacePresetFeatures,
+} from '../core/workspace.ts'
 import type {
   FeatureId,
   Framework,
   PackageManager,
   ProjectKind,
+  ProjectOptions,
 } from '../core/types.ts'
 import {
   compatibleFeatures,
+  type Preset,
   type PresetName,
   presetFeatures,
   presets,
 } from '../presets.ts'
+import { promptFeatures } from './prompts.ts'
 import { exitIfCancelled, parseList, runProcess, showNotes } from './shared.ts'
 
 const PACKAGE_NAME = /^[a-z0-9][a-z0-9._-]*$/
@@ -36,7 +46,10 @@ export const createCommand = defineCommand({
       type: 'string',
       description: `Use a preset (${Object.keys(presets).join(', ')})`,
     },
-    kind: { type: 'string', description: 'Project kind: frontend or library' },
+    kind: {
+      type: 'string',
+      description: 'Project kind: frontend, library or monorepo',
+    },
     name: {
       type: 'string',
       description: 'Package name (defaults to the directory name)',
@@ -47,6 +60,11 @@ export const createCommand = defineCommand({
     },
     pm: { type: 'string', description: 'Package manager: pnpm or bun' },
     features: { type: 'string', description: 'Comma-separated feature ids' },
+    members: {
+      type: 'string',
+      description:
+        'Monorepo projects as name:vue|react|library, e.g. web:vue,shared:library',
+    },
     'pages-domain': {
       type: 'string',
       description: 'Custom domain for GitHub Pages',
@@ -94,15 +112,14 @@ export const createCommand = defineCommand({
                 {
                   value: 'monorepo',
                   label: 'Monorepo',
-                  hint: 'coming soon',
-                  disabled: true,
+                  hint: 'apps/* and packages/*',
                 },
               ],
             }),
           )
         : 'frontend')) as ProjectKind
-    if (kind !== 'frontend' && args.framework !== undefined) {
-      return fail('--framework only applies to frontend projects')
+    if (kind === 'library' && args.framework !== undefined) {
+      return fail('--framework does not apply to library projects')
     }
 
     const placeholder = kind === 'library' ? 'my-lib' : 'my-app'
@@ -145,22 +162,21 @@ export const createCommand = defineCommand({
         : basename(root))
     if (!isValidPackageName(name)) return fail(`Invalid package name: ${name}`)
 
-    const framework =
-      kind === 'frontend'
-        ? ((args.framework ??
-            preset?.framework ??
-            (interactive
-              ? exitIfCancelled(
-                  await p.select<Framework>({
-                    message: 'Framework',
-                    options: [
-                      { value: 'vue', label: 'Vue' },
-                      { value: 'react', label: 'React' },
-                    ],
-                  }),
-                )
-              : defaults.framework)) as Framework)
-        : undefined
+    const promptFramework = async () =>
+      (args.framework ??
+        preset?.framework ??
+        (interactive
+          ? exitIfCancelled(
+              await p.select<Framework>({
+                message: 'Framework',
+                options: [
+                  { value: 'vue', label: 'Vue' },
+                  { value: 'react', label: 'React' },
+                ],
+              }),
+            )
+          : defaults.framework)) as Framework
+    const framework = kind === 'frontend' ? await promptFramework() : undefined
 
     const packageManager = (args.pm ??
       preset?.packageManager ??
@@ -176,16 +192,35 @@ export const createCommand = defineCommand({
           )
         : defaults.packageManager)) as PackageManager
 
+    let members: Omit<MemberSpec, 'features'>[] = []
+    if (kind === 'monorepo') {
+      const parsed = parseMembers(args.members)
+      if (parsed instanceof Error) return fail(parsed.message)
+      members = parsed ?? (await promptMembers(interactive, promptFramework))
+    }
+
+    const presetFor = (source: Preset) =>
+      kind === 'monorepo'
+        ? workspacePresetFeatures(source, members)
+        : presetFeatures(source, kind, framework)
+    const candidates =
+      kind === 'monorepo'
+        ? [
+            ...new Set([
+              ...compatibleFeatures('monorepo'),
+              ...members.flatMap((member) =>
+                compatibleFeatures(member.kind, member.framework),
+              ),
+            ]),
+          ].filter((feature) => !feature.standaloneOnly)
+        : compatibleFeatures(kind, framework)
+
     const features =
       (parseList(args.features) as FeatureId[] | undefined) ??
-      (preset ? presetFeatures(preset, kind, framework) : undefined) ??
+      (preset ? presetFor(preset) : undefined) ??
       (interactive
-        ? await promptFeatures(
-            presetFeatures(defaults, kind, framework),
-            kind,
-            framework,
-          )
-        : presetFeatures(defaults, kind, framework))
+        ? await promptFeatures(presetFor(defaults), candidates)
+        : presetFor(defaults))
 
     let pagesDomain = args['pages-domain']
     if (
@@ -203,26 +238,43 @@ export const createCommand = defineCommand({
         ) || undefined
     }
 
-    let result
+    const options: ProjectOptions = {
+      name,
+      kind,
+      framework,
+      packageManager,
+      features,
+      pagesDomain,
+    }
+    let projects: WorkspaceResult['projects']
     try {
-      result = await generate({
-        root,
-        mode: 'create',
-        options: {
-          name,
-          kind,
-          framework,
-          packageManager,
-          features,
-          pagesDomain,
-        },
-      })
+      if (kind === 'monorepo') {
+        const split = splitWorkspaceFeatures(features, members)
+        projects = (
+          await generateWorkspace({
+            root,
+            options: { ...options, features: split.root },
+            members: split.members,
+          })
+        ).projects
+      } else {
+        projects = [
+          {
+            path: '',
+            result: await generate({ root, mode: 'create', options }),
+          },
+        ]
+      }
     } catch (error) {
       if (error instanceof ResolveError) return fail(error.message)
       throw error
     }
-    await result.fs.commit()
-    p.log.success(`Created ${result.fs.changedPaths().length} files in ${dir}`)
+    let fileCount = 0
+    for (const { result } of projects) {
+      await result.fs.commit()
+      fileCount += result.fs.changedPaths().length
+    }
+    p.log.success(`Created ${fileCount} files in ${dir}`)
 
     // Initialize Git before installing so husky's prepare script can set up hooks.
     if (
@@ -243,7 +295,11 @@ export const createCommand = defineCommand({
       }
     }
 
-    showNotes(result.notes)
+    showNotes(
+      projects.flatMap(({ path, result }) =>
+        result.notes.map((note) => (path ? `${path}: ${note}` : note)),
+      ),
+    )
     const steps = [`cd ${relative(process.cwd(), root) || '.'}`]
     if (!args.install) steps.push(`${packageManager} install`)
     steps.push(`${packageManager} run dev`)
@@ -265,77 +321,58 @@ async function isEmptyDir(path: string) {
   }
 }
 
-const LINTERS: Record<string, { label: string; ids: FeatureId[] }> = {
-  eslint: { label: 'ESLint', ids: ['eslint'] },
-  oxlint: { label: 'oxlint', ids: ['oxlint'] },
-  both: { label: 'oxlint + ESLint', ids: ['oxlint', 'eslint'] },
-  none: { label: 'None', ids: [] },
+const MEMBER_NAME = /^[a-z0-9][a-z0-9._-]*$/
+
+/** Parses `web:vue,shared:library`; undefined when the flag is absent. */
+function parseMembers(value: string | undefined) {
+  const items = parseList(value)
+  if (!items) return undefined
+  const members: Omit<MemberSpec, 'features'>[] = []
+  for (const item of items) {
+    const [memberName = '', type = ''] = item.split(':')
+    if (!MEMBER_NAME.test(memberName)) {
+      return new Error(`Invalid project name in --members: ${memberName}`)
+    }
+    if (type === 'library') {
+      members.push({ name: memberName, kind: 'library' })
+    } else if (type === 'vue' || type === 'react') {
+      members.push({ name: memberName, kind: 'frontend', framework: type })
+    } else {
+      return new Error(
+        `Unknown project type "${type}" in --members; use vue, react or library`,
+      )
+    }
+  }
+  return members
 }
 
-const FORMATTERS: Record<string, { label: string; ids: FeatureId[] }> = {
-  prettier: { label: 'Prettier', ids: ['prettier'] },
-  oxfmt: { label: 'oxfmt', ids: ['oxfmt'] },
-  none: { label: 'None', ids: [] },
-}
-
-/** Linter and formatter are single choices; everything else is a checklist. */
-async function promptFeatures(
-  initial: FeatureId[],
-  kind: ProjectKind,
-  framework: Framework | undefined,
-) {
-  const initialChoice = (choices: typeof LINTERS) =>
-    Object.entries(choices).find(
-      ([, { ids }]) =>
-        ids.length > 0 && ids.every((id) => initial.includes(id)),
-    )?.[0] ?? 'none'
-
-  const linter = exitIfCancelled(
-    await p.select({
-      message: 'Linter',
-      options: Object.entries(LINTERS).map(([value, { label }]) => ({
-        value,
-        label,
-      })),
-      initialValue: initialChoice(
-        Object.fromEntries(
-          Object.entries(LINTERS).sort(
-            ([, a], [, b]) => b.ids.length - a.ids.length,
-          ),
-        ),
-      ),
-    }),
-  )
-  const formatter = exitIfCancelled(
-    await p.select({
-      message: 'Formatter',
-      options: Object.entries(FORMATTERS).map(([value, { label }]) => ({
-        value,
-        label,
-      })),
-      initialValue: initialChoice(FORMATTERS),
-    }),
-  )
-  const others = compatibleFeatures(kind, framework).filter(
-    (feature) => !feature.category,
-  )
-  const selected = exitIfCancelled(
-    await p.multiselect<FeatureId>({
-      message: 'Features',
-      options: others.map((feature) => ({
-        value: feature.id,
-        label: feature.label,
-        hint: feature.hint,
-      })),
-      initialValues: others
-        .map((feature) => feature.id)
-        .filter((id) => initial.includes(id)),
-      required: false,
-    }),
-  )
-  return [
-    ...(LINTERS[linter]?.ids ?? []),
-    ...(FORMATTERS[formatter]?.ids ?? []),
-    ...selected,
-  ]
+async function promptMembers(
+  interactive: boolean,
+  promptFramework: () => Promise<Framework>,
+): Promise<Omit<MemberSpec, 'features'>[]> {
+  const selected = interactive
+    ? exitIfCancelled(
+        await p.multiselect({
+          message: 'Initial projects',
+          options: [
+            { value: 'web', label: 'apps/web', hint: 'frontend app' },
+            { value: 'shared', label: 'packages/shared', hint: 'library' },
+          ],
+          initialValues: ['web', 'shared'],
+          required: false,
+        }),
+      )
+    : ['web', 'shared']
+  const members: Omit<MemberSpec, 'features'>[] = []
+  if (selected.includes('web')) {
+    members.push({
+      name: 'web',
+      kind: 'frontend',
+      framework: await promptFramework(),
+    })
+  }
+  if (selected.includes('shared')) {
+    members.push({ name: 'shared', kind: 'library' })
+  }
+  return members
 }
