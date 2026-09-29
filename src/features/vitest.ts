@@ -12,14 +12,28 @@ export default defineFeature({
   label: 'Vitest',
   hint: 'unit tests',
   kinds: ['frontend'],
-  frameworks: ['vue'],
+  frameworks: ['vue', 'react'],
   async apply(ctx) {
+    ctx.pkg.addScripts({ test: 'vitest run', 'test:watch': 'vitest' })
+
+    if (ctx.options.framework === 'react') {
+      ctx.pkg.addDevDependencies(
+        pick(
+          'vitest',
+          'jsdom',
+          '@testing-library/react',
+          '@testing-library/dom',
+        ),
+      )
+      // React tests live in src and are type-checked by tsconfig.app.json.
+      await copyTemplate(ctx, 'vitest-react')
+      return
+    }
+
     ctx.pkg.addDevDependencies(
       pick('vitest', '@vue/test-utils', 'jsdom', '@types/jsdom'),
     )
-    ctx.pkg.addScripts({ test: 'vitest run', 'test:watch': 'vitest' })
     await copyTemplate(ctx, 'vitest-vue')
-
     const referenced = await updateJson<TsconfigReferences>(
       ctx,
       'tsconfig.json',
@@ -31,9 +45,10 @@ export default defineFeature({
         tsconfig.references = references
       },
     )
-    if (!referenced)
+    if (!referenced) {
       ctx.note(
         'Add `{ "path": "./tsconfig.vitest.json" }` to the references in tsconfig.json.',
       )
+    }
   },
 })
