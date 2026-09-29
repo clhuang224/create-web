@@ -7,7 +7,7 @@ An opinionated CLI for scaffolding web projects, and for adding features to proj
 Inspired by `create-vite` and `create-vue`, but it sets up more than a framework template: Git hooks, CI, lint and format rules, deployment, and agent instruction files (`AGENTS.md` / `CLAUDE.md`) all come preconfigured and work together.
 
 > [!WARNING]
-> This project is in early development and not published to npm yet. Only Vue and React frontend projects are supported so far.
+> This project is in early development and not published to npm yet. Frontend (Vue, React) and library projects are supported so far.
 
 ## Usage
 
@@ -38,7 +38,15 @@ Some generated files (Git hooks, the CI workflow, `AGENTS.md`) contain blocks be
 | `backend` | API server |
 | `monorepo` | Workspace that combines the kinds above under `apps/*` and `packages/*` |
 
-`frontend` comes first; the other kinds follow. See [docs/plan.md](./docs/plan.md) for the roadmap.
+`frontend` and `library` are available; `backend` and `monorepo` are planned. See [docs/plan.md](./docs/plan.md) for the roadmap.
+
+Create a library with a scoped package name:
+
+```bash
+pnpm create @clhuang224/web my-lib --kind library --name @my-scope/my-lib
+```
+
+Libraries are built with [tsdown](https://tsdown.dev) into ESM with type declarations. The optional `publish` feature adds a workflow that publishes to npm when a `v*` tag is pushed.
 
 ## Options
 

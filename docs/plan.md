@@ -39,7 +39,7 @@ Hybrid of layered templates and feature modules.
 The first prompt picks a kind. Each kind has its own base template and its own set of applicable features.
 
 - `frontend`: SPA built with Vite
-- `library`: TypeScript package built with tsdown/unbuild, publishable to npm or GitHub Packages
+- `library`: TypeScript package built with tsdown (ESM + declarations, `platform: 'neutral'`), publishable to npm
 - `backend`: API server (framework TBD, e.g. NestJS / Elysia / Hono)
 - `monorepo`: workspace root that composes other kinds under `apps/*` and `packages/*`
 
@@ -98,7 +98,7 @@ Derived from `bus`, `queener` and `milestone-checker`:
 
 1. `frontend` kind: Vue and React SPA, `lynn` preset, pnpm and bun. Vue and React are done.
 2. `add` command for features on existing frontend projects. Done for projects with a manifest; detection-based fallback is not implemented.
-3. `library` kind.
+3. `library` kind. Done; no framework, features limited to tooling (Vitest, linters, formatters, hooks, CI, publish workflow, agent docs).
 4. `monorepo` kind composing frontend and library.
 5. `backend` kind.
 6. Deferred items below.

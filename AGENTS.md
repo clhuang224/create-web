@@ -17,7 +17,7 @@ src/
 ├── cli.ts          # Entry; routes `create-web <dir>` to `create`
 ├── commands/       # `create` and `add` (prompts, flags, install)
 ├── core/           # Pipeline: resolver, virtual fs, context, manifest, formatting
-├── bases/          # Base project per framework (create only)
+├── bases/          # Base project per kind and framework (create only)
 ├── features/       # Feature modules; `index.ts` is the registry
 ├── editors/        # Safe edits to shared files (vite config, main.ts, JSON)
 ├── presets.ts
