@@ -1,11 +1,12 @@
 import type { Context } from '../core/context.ts'
 import { copyTemplate } from '../core/template.ts'
-import { pick, versions } from '../versions.ts'
+import { pick } from '../versions.ts'
+import { applyStandaloneFields } from './common.ts'
 
 export async function applyLibraryBase(ctx: Context) {
   await copyTemplate(ctx, 'library')
 
-  const { name, packageManager } = ctx.options
+  const { name } = ctx.options
   ctx.pkg.set('name', name)
   ctx.pkg.set('version', '0.0.0')
   ctx.pkg.set('description', '')
@@ -18,8 +19,7 @@ export async function applyLibraryBase(ctx: Context) {
   })
   ctx.pkg.set('files', ['dist'])
   if (name.startsWith('@')) ctx.pkg.set('publishConfig', { access: 'public' })
-  ctx.pkg.set('packageManager', `${packageManager}@${versions[packageManager]}`)
-  ctx.pkg.set('engines', { node: `>=${versions.node}` })
+  applyStandaloneFields(ctx)
   ctx.pkg.addScripts({
     dev: 'tsdown --watch',
     build: 'tsdown',

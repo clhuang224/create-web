@@ -5,6 +5,9 @@ import type { Context } from './context.ts'
 
 const NAME_TOKEN = /__PROJECT_NAME__/g
 
+/** Files a monorepo root owns; workspace members do not get their own copy. */
+const WORKSPACE_ROOT_FILES = new Set(['.gitignore', '.editorconfig'])
+
 /**
  * Copies `templates/<name>` into the virtual fs. A single leading `_` in a file
  * name becomes `.`, because npm drops files such as `.gitignore` when publishing;
@@ -14,10 +17,9 @@ export async function copyTemplate(ctx: Context, name: string) {
   const root = join(templatesDir, name)
   for (const file of await listFiles(root)) {
     const source = relative(root, file).split(sep).join('/')
-    ctx.fs.write(
-      toTargetPath(source),
-      await renderTemplateFile(ctx, name, source),
-    )
+    const target = toTargetPath(source)
+    if (ctx.workspaceMember && WORKSPACE_ROOT_FILES.has(target)) continue
+    ctx.fs.write(target, await renderTemplateFile(ctx, name, source))
   }
 }
 

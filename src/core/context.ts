@@ -9,6 +9,8 @@ export interface Context {
   options: ProjectOptions
   fs: VirtualFs
   pkg: PackageJsonEditor
+  /** True for projects inside a monorepo; the root owns shared files like .gitignore. */
+  workspaceMember: boolean
   /** Features present in the project after this run, including ones applied earlier. */
   has(feature: FeatureId): boolean
   /** Command that runs a package.json script with the chosen package manager. */

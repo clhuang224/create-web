@@ -15,6 +15,8 @@ export interface Feature {
   requires?: FeatureId[]
   /** Features that cannot be used together with this one. */
   conflicts?: FeatureId[]
+  /** Only for standalone projects; not supported inside a monorepo yet. */
+  standaloneOnly?: boolean
   /** Linters and formatters get their own prompts instead of the feature list. */
   category?: 'linter' | 'formatter'
   /** Features that, when present, must be applied before this one. */

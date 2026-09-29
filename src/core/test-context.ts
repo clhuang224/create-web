@@ -17,6 +17,7 @@ export function createTestContext(mode: Mode = 'create') {
     },
     fs,
     pkg: new PackageJsonEditor({}),
+    workspaceMember: false,
     has: () => false,
     run: (script) => `pnpm run ${script}`,
     note: (message) => notes.push(message),

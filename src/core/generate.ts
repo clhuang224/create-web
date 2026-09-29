@@ -4,7 +4,7 @@ import type { Context, Mode } from './context.ts'
 import { formatChangedFiles } from './format.ts'
 import { hashContent, readManifest, writeManifest } from './manifest.ts'
 import { PackageJsonEditor } from './package-json.ts'
-import { resolveFeatures } from './resolver.ts'
+import { ResolveError, resolveFeatures } from './resolver.ts'
 import type { FeatureId, ProjectOptions } from './types.ts'
 import { VirtualFs } from './vfs.ts'
 
@@ -14,6 +14,13 @@ export interface GenerateInput {
   options: ProjectOptions
   /** Features already applied to the project (add mode). */
   existing?: FeatureId[]
+  /**
+   * Set for projects inside a monorepo: features the workspace root provides
+   * (e.g. the formatter). They count for `ctx.has` but are never applied here.
+   */
+  workspace?: { inherited: FeatureId[] }
+  /** Monorepo root: member paths to record in the manifest. */
+  members?: string[]
 }
 
 export interface GenerateResult {
@@ -27,8 +34,11 @@ export async function generate({
   mode,
   options,
   existing = [],
+  workspace,
+  members,
 }: GenerateInput): Promise<GenerateResult> {
   const applyBase = selectBase(options)
+  if (workspace) assertMemberFeatures(options.features)
 
   const resolved = resolveFeatures(registry, {
     kind: options.kind,
@@ -40,7 +50,9 @@ export async function generate({
 
   const fs = new VirtualFs(root)
   const notes: string[] = []
-  const previousHashes = (await readManifest(fs))?.generated ?? {}
+  const previous = await readManifest(fs)
+  const previousHashes = previous?.generated ?? {}
+  const inherited = new Set(workspace?.inherited ?? [])
   const generatedPaths = new Set<string>(Object.keys(previousHashes))
   const finalOptions: ProjectOptions = { ...options, features: [...present] }
   const ctx: Context = {
@@ -48,7 +60,8 @@ export async function generate({
     options: finalOptions,
     fs,
     pkg: await PackageJsonEditor.load(fs),
-    has: (feature) => present.has(feature),
+    workspaceMember: workspace !== undefined,
+    has: (feature) => present.has(feature) || inherited.has(feature),
     run: (script) => `${options.packageManager} run ${script}`,
     note: (message) => notes.push(message),
     writeGenerated: (path, content) => {
@@ -75,8 +88,27 @@ export async function generate({
     const content = await fs.read(path)
     if (content !== undefined) hashes[path] = hashContent(content)
   }
-  writeManifest(fs, finalOptions, hashes)
+  writeManifest(fs, finalOptions, {
+    generated: hashes,
+    members: members ?? previous?.members,
+    workspace,
+  })
   await formatChangedFiles(fs)
 
   return { fs, applied: toApply.map((feature) => feature.id), notes }
+}
+
+/** Features owned by the workspace root, or not supported inside a workspace yet. */
+function assertMemberFeatures(features: FeatureId[]) {
+  for (const id of features) {
+    const feature = registry.find((candidate) => candidate.id === id)
+    if (feature?.kinds.includes('monorepo')) {
+      throw new ResolveError(
+        `"${id}" is set up at the workspace root, not in individual projects`,
+      )
+    }
+    if (feature?.standaloneOnly) {
+      throw new ResolveError(`"${id}" is not supported inside a monorepo yet`)
+    }
+  }
 }
