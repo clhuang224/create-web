@@ -4,7 +4,8 @@ This repository is `@clhuang224/create-web`, a personal CLI that scaffolds web p
 
 ## Documentation Ownership
 
-- `README.md`: feature overview and usage.
+- `README.md`: user-facing overview and usage, in English.
+- `docs/README.zh-TW.md`: Traditional Chinese translation of `README.md`. Update both together.
 - `docs/plan.md`: product direction, architecture decisions, roadmap, and deferred items.
 
 Record new architecture decisions in `docs/plan.md` instead of scattering them across code comments.
