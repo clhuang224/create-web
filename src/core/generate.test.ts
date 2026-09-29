@@ -120,4 +120,40 @@ describe('generate (add)', () => {
     )
     expect(notes).toEqual(['Render `<RouterView />` in src/App.vue.'])
   })
+
+  it('refreshes hooks, CI and AGENTS.md when a feature adds scripts', async () => {
+    const base: ProjectOptions = {
+      ...lynn,
+      features: ['husky', 'github-actions', 'agent-docs'],
+    }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+    expect(await readFile(join(root, '.husky/pre-push'), 'utf8')).not.toContain(
+      'pnpm run test',
+    )
+
+    const preCommit = join(root, '.husky/pre-commit')
+    await writeFile(
+      preCommit,
+      `${await readFile(preCommit, 'utf8')}echo custom\n`,
+    )
+
+    const { fs } = await generate({
+      root,
+      mode: 'add',
+      options: { ...base, features: ['vitest'] },
+      existing: base.features,
+    })
+    await fs.commit()
+
+    expect(await readFile(join(root, '.husky/pre-push'), 'utf8')).toContain(
+      'pnpm run test',
+    )
+    expect(await readFile(preCommit, 'utf8')).toContain('echo custom')
+    expect(
+      await readFile(join(root, '.github/workflows/ci.yml'), 'utf8'),
+    ).toContain("command: ['typecheck', 'test', 'build']")
+    expect(await readFile(join(root, 'AGENTS.md'), 'utf8')).toContain(
+      '`pnpm run test`: run unit tests',
+    )
+  })
 })

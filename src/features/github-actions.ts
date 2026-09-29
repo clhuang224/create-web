@@ -1,5 +1,6 @@
 import type { Context } from '../core/context.ts'
 import { defineFeature } from '../core/feature.ts'
+import { managedBlock, syncManagedBlock } from '../editors/managed-block.ts'
 import { versions } from '../versions.ts'
 
 export function setupActionPath(ctx: Context) {
@@ -45,20 +46,11 @@ export default defineFeature({
   label: 'GitHub Actions',
   hint: 'CI checks on pull requests',
   kinds: ['frontend'],
-  after: ['eslint', 'prettier', 'vitest'],
   apply(ctx) {
     ctx.fs.write(
       `.github/actions/setup-${ctx.options.packageManager}/action.yml`,
       setupAction(ctx),
     )
-
-    const checks = [
-      'lint',
-      'typecheck',
-      'format:check',
-      'test',
-      'build',
-    ].filter((script) => ctx.pkg.hasScript(script))
     ctx.fs.write(
       '.github/workflows/ci.yml',
       `name: CI
@@ -78,12 +70,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        command: [${checks.map((script) => `'${script}'`).join(', ')}]
+${managedBlock('checks', 'hash', '        ')}
     steps:
       - uses: actions/checkout@v5
       - uses: ${setupActionPath(ctx)}
       - run: ${ctx.options.packageManager} run \${{ matrix.command }}
 `,
     )
+  },
+  async sync(ctx) {
+    const checks = [
+      'lint',
+      'typecheck',
+      'format:check',
+      'test',
+      'build',
+    ].filter((script) => ctx.pkg.hasScript(script))
+    await syncManagedBlock(ctx, '.github/workflows/ci.yml', {
+      id: 'checks',
+      style: 'hash',
+      lines: [`command: [${checks.map((script) => `'${script}'`).join(', ')}]`],
+    })
   },
 })

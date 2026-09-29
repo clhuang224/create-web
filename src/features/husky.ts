@@ -1,4 +1,6 @@
+import type { Context } from '../core/context.ts'
 import { defineFeature } from '../core/feature.ts'
+import { managedBlock, syncManagedBlock } from '../editors/managed-block.ts'
 import { pick } from '../versions.ts'
 
 const COMMIT_MSG = `#!/usr/bin/env sh
@@ -16,42 +18,48 @@ if ! printf '%s\\n' "$header" | grep -Eq "$conventional_commit_pattern"; then
 fi
 `
 
+const PRE_COMMIT = `#!/usr/bin/env sh
+
+if git diff --cached --quiet -- . ':(exclude)*.md' ':(exclude)docs'; then
+  echo "Only documentation files staged. Skipping checks."
+  exit 0
+fi
+
+${managedBlock('checks', 'hash')}
+`
+
+const PRE_PUSH = `#!/usr/bin/env sh
+
+${managedBlock('tests', 'hash')}
+`
+
+const scriptsPresent = (ctx: Context, scripts: string[]) =>
+  scripts.filter((script) => ctx.pkg.hasScript(script))
+
 export default defineFeature({
   id: 'husky',
   label: 'Husky',
   hint: 'Git hooks with a Conventional Commits check',
   kinds: ['frontend'],
-  after: ['eslint', 'prettier', 'vitest'],
   apply(ctx) {
     ctx.pkg.addDevDependencies(pick('husky'))
     ctx.pkg.addScripts({ prepare: 'husky' })
     ctx.fs.write('.husky/commit-msg', COMMIT_MSG, { executable: true })
-
-    const checks = ['lint', 'typecheck', 'format:check'].filter((script) =>
-      ctx.pkg.hasScript(script),
-    )
-    ctx.fs.write(
-      '.husky/pre-commit',
-      [
-        '#!/usr/bin/env sh',
-        '',
-        "if git diff --cached --quiet -- . ':(exclude)*.md' ':(exclude)docs'; then",
-        '  echo "Only documentation files staged. Skipping checks."',
-        '  exit 0',
-        'fi',
-        '',
-        ...checks.map((script) => ctx.run(script)),
-        '',
-      ].join('\n'),
-      { executable: true },
-    )
-
-    if (ctx.pkg.hasScript('test')) {
-      ctx.fs.write(
-        '.husky/pre-push',
-        `#!/usr/bin/env sh\n\n${ctx.run('test')}\n`,
-        { executable: true },
-      )
-    }
+    ctx.fs.write('.husky/pre-commit', PRE_COMMIT, { executable: true })
+    ctx.fs.write('.husky/pre-push', PRE_PUSH, { executable: true })
+  },
+  async sync(ctx) {
+    await syncManagedBlock(ctx, '.husky/pre-commit', {
+      id: 'checks',
+      style: 'hash',
+      lines: scriptsPresent(ctx, ['lint', 'typecheck', 'format:check']).map(
+        ctx.run,
+      ),
+    })
+    await syncManagedBlock(ctx, '.husky/pre-push', {
+      id: 'tests',
+      style: 'hash',
+      lines: scriptsPresent(ctx, ['test']).map(ctx.run),
+    })
   },
 })

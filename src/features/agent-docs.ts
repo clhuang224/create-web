@@ -1,5 +1,6 @@
 import type { Context } from '../core/context.ts'
 import { defineFeature } from '../core/feature.ts'
+import { managedBlock, syncManagedBlock } from '../editors/managed-block.ts'
 
 const COMMAND_DESCRIPTIONS: Record<string, string> = {
   dev: 'start the dev server',
@@ -12,36 +13,46 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   test: 'run unit tests',
 }
 
-function agentsGuide(ctx: Context) {
-  const commands = Object.entries(COMMAND_DESCRIPTIONS)
+function commandLines(ctx: Context) {
+  return Object.entries(COMMAND_DESCRIPTIONS)
     .filter(([script]) => ctx.pkg.hasScript(script))
     .map(([script, description]) => `- \`${ctx.run(script)}\`: ${description}`)
+}
 
-  const sections = [
-    `# ${ctx.options.name}`,
-    'Project guide for coding agents and contributors. Keep it focused on rules that are specific to this project.',
-    `## Documentation Ownership
+function hookLines(ctx: Context) {
+  if (!ctx.has('husky')) return []
+  return [
+    '## Git Hooks',
+    '',
+    '- `commit-msg`: Conventional Commits header check.',
+    '- `pre-commit`: lint, typecheck, and format check; skipped when only Markdown or `docs/` files are staged.',
+    ...(ctx.pkg.hasScript('test') ? ['- `pre-push`: unit tests.'] : []),
+  ]
+}
+
+function agentsGuide(ctx: Context) {
+  return `# ${ctx.options.name}
+
+Project guide for coding agents and contributors. Keep it focused on rules that are specific to this project.
+
+## Documentation Ownership
 
 - \`README.md\`: project overview and setup.
 - \`docs/architecture.md\`: current architecture and boundaries.
-- \`docs/plan.md\`: product direction and decisions.`,
-    `## Commands\n\n${commands.join('\n')}`,
-  ]
+- \`docs/plan.md\`: product direction and decisions.
 
-  if (ctx.has('husky')) {
-    sections.push(`## Git Hooks
+## Commands
 
-- \`commit-msg\`: Conventional Commits header check.
-- \`pre-commit\`: lint, typecheck, and format check; skipped when only Markdown or \`docs/\` files are staged.${ctx.pkg.hasScript('test') ? '\n- `pre-push`: unit tests.' : ''}`)
-  }
+${managedBlock('commands', 'html')}
 
-  sections.push(`## Commit Rules
+${managedBlock('git-hooks', 'html')}
+
+## Commit Rules
 
 Follow Conventional Commits: \`<type>[optional scope]: <description>\`.
 
-Use \`feat\`, \`fix\`, \`refactor\`, \`test\`, \`docs\`, \`chore\`, \`build\`, \`ci\`, \`style\`, or \`perf\`. Keep commits small and atomic.`)
-
-  return `${sections.join('\n\n')}\n`
+Use \`feat\`, \`fix\`, \`refactor\`, \`test\`, \`docs\`, \`chore\`, \`build\`, \`ci\`, \`style\`, or \`perf\`. Keep commits small and atomic.
+`
 }
 
 const DOCS: Record<string, string> = {
@@ -70,17 +81,6 @@ export default defineFeature({
   label: 'Agent docs',
   hint: 'AGENTS.md, CLAUDE.md, docs/plan.md, docs/architecture.md',
   kinds: ['frontend'],
-  after: [
-    'pinia',
-    'vue-router',
-    'vitest',
-    'eslint',
-    'prettier',
-    'tailwind',
-    'husky',
-    'github-actions',
-    'github-pages',
-  ],
   async apply(ctx) {
     const files: Record<string, string> = {
       'AGENTS.md': agentsGuide(ctx),
@@ -95,5 +95,17 @@ export default defineFeature({
         ctx.fs.write(path, content)
       }
     }
+  },
+  async sync(ctx) {
+    await syncManagedBlock(ctx, 'AGENTS.md', {
+      id: 'commands',
+      style: 'html',
+      lines: commandLines(ctx),
+    })
+    await syncManagedBlock(ctx, 'AGENTS.md', {
+      id: 'git-hooks',
+      style: 'html',
+      lines: hookLines(ctx),
+    })
   },
 })
