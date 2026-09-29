@@ -7,7 +7,7 @@
 靈感來自 `create-vite` 與 `create-vue`，但它不只提供框架模板：Git hooks、CI、lint 與 format 規則、部署設定，以及給 AI agent 看的說明檔（`AGENTS.md` / `CLAUDE.md`）都會一起配置好，並且彼此搭配。
 
 > [!WARNING]
-> 這個專案還在早期開發階段。以下指令描述的是預計的使用方式，目前尚未實作。
+> 這個專案還在早期開發階段，尚未發布到 npm。目前只支援 Vue 前端專案。
 
 ## 使用方式
 
@@ -25,7 +25,9 @@ create-web create my-project
 create-web add <feature>
 ```
 
-`add` 最適合用在由 `create-web` 建立的專案，這些專案會在 manifest 檔中記錄當初的選項。其他專案則盡力支援。
+`add` 目前只支援由 `create-web` 建立的專案，這些專案會在 `.create-web.json` 中記錄當初的選項。
+
+部分產生的檔案（Git hooks、CI workflow、`AGENTS.md`）中有用 `create-web:start` 與 `create-web:end` 註解包起來的區塊。每次加入功能時，`create-web` 都會依照目前的 scripts 更新這些區塊，所以你自己的修改請寫在區塊外面。
 
 ## 專案類型
 

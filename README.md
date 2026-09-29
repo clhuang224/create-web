@@ -7,7 +7,7 @@ An opinionated CLI for scaffolding web projects, and for adding features to proj
 Inspired by `create-vite` and `create-vue`, but it sets up more than a framework template: Git hooks, CI, lint and format rules, deployment, and agent instruction files (`AGENTS.md` / `CLAUDE.md`) all come preconfigured and work together.
 
 > [!WARNING]
-> This project is in early development. The commands below describe the intended interface and are not implemented yet.
+> This project is in early development and not published to npm yet. Only Vue frontend projects are supported so far.
 
 ## Usage
 
@@ -25,7 +25,9 @@ create-web create my-project
 create-web add <feature>
 ```
 
-`add` works best on projects created by `create-web`, which record their choices in a manifest file. Other projects are supported on a best-effort basis.
+`add` currently works on projects created by `create-web`, which record their choices in `.create-web.json`.
+
+Some generated files (Git hooks, the CI workflow, `AGENTS.md`) contain blocks between `create-web:start` and `create-web:end` comments. `create-web` keeps those blocks in sync with your scripts whenever you add a feature, so put your own changes outside them.
 
 ## Project Kinds
 
