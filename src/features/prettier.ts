@@ -10,8 +10,9 @@ export const prettierOptions = {
 export default defineFeature({
   id: 'prettier',
   label: 'Prettier',
-  hint: 'formatter',
   kinds: ['frontend'],
+  category: 'formatter',
+  conflicts: ['oxfmt'],
   apply(ctx) {
     ctx.pkg.addDevDependencies(pick('prettier'))
     ctx.pkg.addScripts({

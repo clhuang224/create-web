@@ -205,3 +205,86 @@ describe('generate (add)', () => {
     )
   })
 })
+
+describe('oxlint and oxfmt', () => {
+  const ox: ProjectOptions = {
+    ...lynn,
+    features: ['oxlint', 'eslint', 'oxfmt', 'vitest'],
+  }
+
+  it('configures oxlint, oxfmt and ESLint to work together', async () => {
+    const { fs } = await generate({ root, mode: 'create', options: ox })
+    const pkg = JSON.parse((await fs.read('package.json')) ?? '{}')
+
+    expect(pkg.scripts).toMatchObject({
+      lint: 'oxlint && eslint .',
+      format: 'oxfmt',
+      'format:check': 'oxfmt --check',
+    })
+    expect(pkg.devDependencies).toHaveProperty('eslint-plugin-oxlint')
+    expect(pkg.devDependencies).toHaveProperty('eslint-config-prettier')
+    expect(pkg.devDependencies).not.toHaveProperty('prettier')
+    expect(fs.changedPaths()).not.toContain('.prettierrc')
+    expect(
+      JSON.parse((await fs.read('.oxlintrc.json')) ?? '{}').plugins,
+    ).toEqual(['eslint', 'typescript', 'unicorn', 'oxc', 'vue', 'vitest'])
+    const eslintConfig = await fs.read('eslint.config.js')
+    expect(eslintConfig).toContain(
+      "buildFromOxlintConfigFile('./.oxlintrc.json')",
+    )
+    expect(eslintConfig).toContain('skipFormatting')
+  })
+
+  it('records hashes of generated config files in the manifest', async () => {
+    const { fs } = await generate({ root, mode: 'create', options: ox })
+    const manifest = JSON.parse((await fs.read('.create-web.json')) ?? '{}')
+    expect(Object.keys(manifest.generated)).toEqual([
+      '.oxlintrc.json',
+      'eslint.config.js',
+    ])
+  })
+
+  it('updates an unedited ESLint config when oxlint is added later', async () => {
+    const base: ProjectOptions = { ...lynn, features: ['eslint', 'prettier'] }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+
+    const { fs, notes } = await generate({
+      root,
+      mode: 'add',
+      options: { ...base, features: ['oxlint'] },
+      existing: base.features,
+    })
+    await fs.commit()
+
+    expect(notes).toEqual([])
+    expect(await readFile(join(root, 'eslint.config.js'), 'utf8')).toContain(
+      'pluginOxlint',
+    )
+    const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
+    expect(pkg.scripts.lint).toBe('oxlint && eslint .')
+    expect(pkg.devDependencies).toHaveProperty('eslint-plugin-oxlint')
+  })
+
+  it('leaves an edited ESLint config alone and reports what to add', async () => {
+    const base: ProjectOptions = { ...lynn, features: ['eslint'] }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+    const configPath = join(root, 'eslint.config.js')
+    await writeFile(
+      configPath,
+      `${await readFile(configPath, 'utf8')}// custom\n`,
+    )
+
+    const { fs, notes } = await generate({
+      root,
+      mode: 'add',
+      options: { ...base, features: ['oxlint'] },
+      existing: base.features,
+    })
+    await fs.commit()
+
+    expect(await readFile(configPath, 'utf8')).toContain('// custom')
+    expect(await readFile(configPath, 'utf8')).not.toContain('pluginOxlint')
+    expect(notes).toHaveLength(1)
+    expect(notes[0]).toContain('buildFromOxlintConfigFile')
+  })
+})

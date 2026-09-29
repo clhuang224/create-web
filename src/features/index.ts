@@ -4,6 +4,8 @@ import eslint from './eslint.ts'
 import githubActions from './github-actions.ts'
 import githubPages from './github-pages.ts'
 import husky from './husky.ts'
+import oxfmt from './oxfmt.ts'
+import oxlint from './oxlint.ts'
 import pinia from './pinia.ts'
 import prettier from './prettier.ts'
 import reactRouter from './react-router.ts'
@@ -21,6 +23,8 @@ export const features: readonly Feature[] = [
   tailwind,
   vitest,
   prettier,
+  oxfmt,
+  oxlint,
   eslint,
   husky,
   githubActions,
