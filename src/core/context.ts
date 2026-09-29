@@ -15,4 +15,11 @@ export interface Context {
   run(script: string): string
   /** Record a manual step the user still has to do. */
   note(message: string): void
+  /**
+   * Writes a file that create-web owns and may regenerate later. Its hash is
+   * recorded in the manifest so later runs can tell whether the user edited it.
+   */
+  writeGenerated(path: string, content: string): void
+  /** True if the file is missing, written in this run, or unchanged since create-web last wrote it. */
+  canRegenerate(path: string): Promise<boolean>
 }

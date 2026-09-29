@@ -41,6 +41,10 @@ export class VirtualFs {
     })
   }
 
+  isPending(path: string) {
+    return this.pending.has(path)
+  }
+
   changedPaths(): string[] {
     return [...this.pending.keys()].sort()
   }

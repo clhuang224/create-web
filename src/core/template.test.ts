@@ -1,27 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { presetFeatures, presets } from '../presets.ts'
-import type { Context } from './context.ts'
-import { PackageJsonEditor } from './package-json.ts'
 import { copyTemplate } from './template.ts'
-import { VirtualFs } from './vfs.ts'
+import { createTestContext } from './test-context.ts'
 
 describe('copyTemplate', () => {
   it('turns a single leading underscore into a dot but keeps __tests__', async () => {
-    const fs = new VirtualFs('/nonexistent')
-    const ctx: Context = {
-      mode: 'create',
-      options: {
-        name: 'demo',
-        kind: 'frontend',
-        ...presets.lynn,
-        features: presetFeatures(presets.lynn, 'vue'),
-      },
-      fs,
-      pkg: new PackageJsonEditor({}),
-      has: () => false,
-      run: (script) => `pnpm run ${script}`,
-      note: () => {},
-    }
+    const { ctx, fs } = createTestContext()
     await copyTemplate(ctx, 'vue')
     await copyTemplate(ctx, 'vitest-vue')
 

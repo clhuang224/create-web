@@ -1,29 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { Context } from '../core/context.ts'
-import { PackageJsonEditor } from '../core/package-json.ts'
-import { VirtualFs } from '../core/vfs.ts'
-import { presetFeatures, presets } from '../presets.ts'
+import { createTestContext } from '../core/test-context.ts'
 import { managedBlock, syncManagedBlock } from './managed-block.ts'
 
-function createContext() {
-  const notes: string[] = []
-  const fs = new VirtualFs('/nonexistent')
-  const ctx: Context = {
-    mode: 'add',
-    options: {
-      name: 'demo',
-      kind: 'frontend',
-      ...presets.lynn,
-      features: presetFeatures(presets.lynn, 'vue'),
-    },
-    fs,
-    pkg: new PackageJsonEditor({}),
-    has: () => false,
-    run: (script) => `pnpm run ${script}`,
-    note: (message) => notes.push(message),
-  }
-  return { ctx, fs, notes }
-}
+const createContext = () => createTestContext('add')
 
 describe('syncManagedBlock', () => {
   it('rewrites only the block and keeps user lines around it', async () => {
