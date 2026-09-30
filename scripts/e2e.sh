@@ -13,6 +13,7 @@ vue|--framework vue
 react|--framework react
 vue-ox|--framework vue --features oxlint,eslint,oxfmt,vue-router,pinia,vitest,husky
 react-ox|--framework react --features oxlint,oxfmt,react-router,redux,vitest
+vue-swap|--framework vue|node \"\$cli\" remove prettier --yes && node \"\$cli\" add oxfmt --yes
 library|--kind library --name @e2e/library
 library-ox|--kind library --features oxlint,oxfmt,vitest
 monorepo|--kind monorepo|node \"\$cli\" add-member admin --type react --yes && cd apps/web && node \"\$cli\" add oxlint --yes
