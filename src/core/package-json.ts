@@ -8,29 +8,26 @@ export interface PackageJson {
   [key: string]: unknown
 }
 
-export type ScriptConflictHandler = (
-  script: string,
-  current: string,
-  next: string,
-) => void
+/** Receives messages about scripts create-web left alone. */
+export type NoteHandler = (message: string) => void
 
 export class PackageJsonEditor {
   readonly data: PackageJson
   /** Scripts the project had before this run; `addScripts` never replaces them. */
   private readonly initialScripts: Record<string, string>
-  private readonly onScriptConflict?: ScriptConflictHandler
+  private readonly note?: NoteHandler
 
-  constructor(data: PackageJson, onScriptConflict?: ScriptConflictHandler) {
+  constructor(data: PackageJson, note?: NoteHandler) {
     this.data = data
     this.initialScripts = { ...data.scripts }
-    this.onScriptConflict = onScriptConflict
+    this.note = note
   }
 
-  static async load(fs: VirtualFs, onScriptConflict?: ScriptConflictHandler) {
+  static async load(fs: VirtualFs, note?: NoteHandler) {
     const raw = await fs.read('package.json')
     return new PackageJsonEditor(
       raw ? (JSON.parse(raw) as PackageJson) : {},
-      onScriptConflict,
+      note,
     )
   }
 
@@ -47,7 +44,9 @@ export class PackageJsonEditor {
     for (const [name, value] of Object.entries(scripts)) {
       const initial = this.initialScripts[name]
       if (initial !== undefined && initial !== value) {
-        this.onScriptConflict?.(name, initial, value)
+        this.note?.(
+          `The "${name}" script already exists ("${initial}") and was kept; create-web would set it to "${value}".`,
+        )
         continue
       }
       this.setScript(name, value)
@@ -57,6 +56,37 @@ export class PackageJsonEditor {
   /** Sets a script unconditionally; for callers that checked the current value themselves. */
   setScript(name: string, value: string) {
     this.data.scripts = { ...this.data.scripts, [name]: value }
+  }
+
+  /**
+   * Removes scripts create-web added, given the values it set. A script whose
+   * value changed since is kept and reported.
+   */
+  removeScripts(scripts: Record<string, string>) {
+    for (const [name, value] of Object.entries(scripts)) {
+      const current = this.data.scripts?.[name]
+      if (current === undefined) continue
+      if (current !== value) {
+        this.note?.(
+          `The "${name}" script was changed ("${current}"), so it was kept.`,
+        )
+        continue
+      }
+      this.deleteScript(name)
+    }
+  }
+
+  /** Deletes a script unconditionally; for callers that checked the current value themselves. */
+  deleteScript(name: string) {
+    if (!this.data.scripts) return
+    this.data.scripts = Object.fromEntries(
+      Object.entries(this.data.scripts).filter(([script]) => script !== name),
+    )
+  }
+
+  removeDependencies(names: string[]) {
+    this.data.dependencies = without(this.data.dependencies, names)
+    this.data.devDependencies = without(this.data.devDependencies, names)
   }
 
   addDependencies(deps: Record<string, string>) {
@@ -73,6 +103,13 @@ export class PackageJsonEditor {
   save(fs: VirtualFs) {
     fs.write('package.json', `${JSON.stringify(this.data, null, 2)}\n`)
   }
+}
+
+function without(record: Record<string, string> | undefined, names: string[]) {
+  if (!record) return record
+  return Object.fromEntries(
+    Object.entries(record).filter(([name]) => !names.includes(name)),
+  )
 }
 
 function sortKeys(record: Record<string, string>) {

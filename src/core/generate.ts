@@ -1,6 +1,7 @@
 import { selectBase } from '../bases/index.ts'
 import { features as registry } from '../features/index.ts'
 import type { Context, Mode } from './context.ts'
+import { stripManagedBlocks } from '../editors/managed-block.ts'
 import { formatChangedFiles, formatSource } from './format.ts'
 import { hashContent, readManifest, writeManifest } from './manifest.ts'
 import { PackageJsonEditor } from './package-json.ts'
@@ -21,11 +22,14 @@ export interface GenerateInput {
   workspace?: { inherited: FeatureId[] }
   /** Monorepo root: member paths to record in the manifest. */
   members?: string[]
+  /** Remove mode: features to remove from `existing`. */
+  remove?: FeatureId[]
 }
 
 export interface GenerateResult {
   fs: VirtualFs
   applied: FeatureId[]
+  removed: FeatureId[]
   notes: string[]
 }
 
@@ -36,14 +40,19 @@ export async function generate({
   existing = [],
   workspace,
   members,
+  remove = [],
 }: GenerateInput): Promise<GenerateResult> {
   const applyBase = selectBase(options)
   if (workspace) assertMemberFeatures(options.features)
+  const toRemove = mode === 'remove' ? removableFeatures(existing, remove) : []
 
   const resolved = resolveFeatures(registry, {
     kind: options.kind,
     framework: options.framework,
-    features: [...existing, ...options.features],
+    features:
+      mode === 'remove'
+        ? existing.filter((id) => !remove.includes(id))
+        : [...existing, ...options.features],
   })
   const present = new Set(resolved.map((feature) => feature.id))
   const toApply = resolved.filter((feature) => !existing.includes(feature.id))
@@ -59,11 +68,7 @@ export async function generate({
     mode,
     options: finalOptions,
     fs,
-    pkg: await PackageJsonEditor.load(fs, (script, current, next) =>
-      notes.push(
-        `The "${script}" script already exists ("${current}") and was kept; create-web would set it to "${next}".`,
-      ),
-    ),
+    pkg: await PackageJsonEditor.load(fs, (message) => notes.push(message)),
     workspaceMember: workspace !== undefined,
     has: (feature) => present.has(feature) || inherited.has(feature),
     run: (script) => `${options.packageManager} run ${script}`,
@@ -83,6 +88,26 @@ export async function generate({
       }
       fs.write(path, content, fileOptions)
     },
+    removeFile: async (path, expected, removeOptions = {}) => {
+      const current = await fs.read(path)
+      if (current === undefined) return
+      const strip = (content: string) =>
+        removeOptions.ignoreManagedBlocks
+          ? stripManagedBlocks(content)
+          : content
+      const unchanged =
+        expected === undefined
+          ? await ctx.canRegenerate(path)
+          : await sameContent(path, strip(current), strip(expected))
+      if (unchanged) {
+        fs.delete(path)
+        generatedPaths.delete(path)
+      } else {
+        notes.push(
+          `${path} was changed, so it was kept; delete it yourself if it is no longer needed.`,
+        )
+      }
+    },
     writeGenerated: (path, content) => {
       fs.write(path, content)
       generatedPaths.add(path)
@@ -96,6 +121,8 @@ export async function generate({
 
   if (mode === 'create') await applyBase(ctx)
   for (const feature of toApply) await feature.apply(ctx)
+  // Undo in reverse order, so a feature is removed before the ones it builds on.
+  for (const feature of [...toRemove].reverse()) await feature.remove?.(ctx)
   for (const feature of resolved) await feature.sync?.(ctx)
 
   ctx.pkg.save(fs)
@@ -121,7 +148,38 @@ export async function generate({
   })
   await formatChangedFiles(fs)
 
-  return { fs, applied: toApply.map((feature) => feature.id), notes }
+  return {
+    fs,
+    applied: toApply.map((feature) => feature.id),
+    removed: toRemove.map((feature) => feature.id),
+    notes,
+  }
+}
+
+/** Checks that each feature can be removed, and returns them in registry order. */
+function removableFeatures(existing: FeatureId[], remove: FeatureId[]) {
+  for (const id of remove) {
+    const feature = registry.find((candidate) => candidate.id === id)
+    if (!feature) throw new ResolveError(`Unknown feature: ${id}`)
+    if (!existing.includes(id)) {
+      throw new ResolveError(`"${id}" is not part of this project`)
+    }
+    if (!feature.remove) {
+      throw new ResolveError(
+        `"${id}" cannot be removed automatically yet; remove it by hand`,
+      )
+    }
+  }
+  for (const feature of registry) {
+    if (!existing.includes(feature.id) || remove.includes(feature.id)) continue
+    const needed = feature.requires?.find((id) => remove.includes(id))
+    if (needed) {
+      throw new ResolveError(
+        `"${needed}" is required by "${feature.id}"; remove "${feature.id}" as well`,
+      )
+    }
+  }
+  return registry.filter((feature) => remove.includes(feature.id))
 }
 
 /** Features owned by the workspace root, or not supported inside a workspace yet. */

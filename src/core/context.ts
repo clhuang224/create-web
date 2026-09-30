@@ -2,7 +2,7 @@ import type { PackageJsonEditor } from './package-json.ts'
 import type { FeatureId, ProjectOptions } from './types.ts'
 import type { VirtualFs } from './vfs.ts'
 
-export type Mode = 'create' | 'add'
+export type Mode = 'create' | 'add' | 'remove'
 
 export interface Context {
   mode: Mode
@@ -25,6 +25,17 @@ export interface Context {
     path: string,
     content: string,
     options?: { executable?: boolean },
+  ): Promise<void>
+  /**
+   * Deletes a file create-web added, if it is unchanged: equal to `expected`
+   * (ignoring managed block contents with `ignoreManagedBlocks`), or, when
+   * `expected` is omitted, unchanged since `writeGenerated` wrote it. An edited
+   * file is kept and a note is recorded.
+   */
+  removeFile(
+    path: string,
+    expected?: string,
+    options?: { ignoreManagedBlocks?: boolean },
   ): Promise<void>
   /**
    * Writes a file that create-web owns and may regenerate later. Its hash is

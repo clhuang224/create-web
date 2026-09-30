@@ -23,6 +23,12 @@ export interface Feature {
   after?: FeatureId[]
   apply(ctx: Context): void | Promise<void>
   /**
+   * Undoes `apply` for `create-web remove`: deletes the feature's files and
+   * package.json entries where they are unchanged. Features without it cannot
+   * be removed automatically.
+   */
+  remove?(ctx: Context): void | Promise<void>
+  /**
    * Refreshes files derived from the project's current state (e.g. scripts).
    * Runs for every present feature after all features have been applied, so
    * features added later are reflected in files written earlier.

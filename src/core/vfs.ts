@@ -1,14 +1,13 @@
-import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
-interface PendingFile {
-  content: string
-  executable: boolean
-}
+type PendingFile =
+  { deleted: false; content: string; executable: boolean } | { deleted: true }
 
 /**
- * Reads fall through to disk; writes stay in memory until `commit`, so a
- * whole generation can be previewed or discarded before touching the disk.
+ * Reads fall through to disk; writes and deletions stay in memory until
+ * `commit`, so a whole generation can be previewed or discarded before
+ * touching the disk.
  */
 export class VirtualFs {
   readonly root: string
@@ -20,7 +19,7 @@ export class VirtualFs {
 
   async read(path: string): Promise<string | undefined> {
     const file = this.pending.get(path)
-    if (file) return file.content
+    if (file) return file.deleted ? undefined : file.content
     try {
       return await readFile(join(this.root, path), 'utf8')
     } catch (error) {
@@ -34,24 +33,43 @@ export class VirtualFs {
   }
 
   write(path: string, content: string, options: { executable?: boolean } = {}) {
+    const previous = this.pending.get(path)
     this.pending.set(path, {
+      deleted: false,
       content,
       executable:
-        options.executable ?? this.pending.get(path)?.executable ?? false,
+        options.executable ??
+        (previous && !previous.deleted ? previous.executable : false),
     })
+  }
+
+  delete(path: string) {
+    this.pending.set(path, { deleted: true })
   }
 
   isPending(path: string) {
     return this.pending.has(path)
   }
 
+  /** Paths written or deleted in this run. */
   changedPaths(): string[] {
     return [...this.pending.keys()].sort()
+  }
+
+  deletedPaths(): string[] {
+    return [...this.pending]
+      .filter(([, file]) => file.deleted)
+      .map(([path]) => path)
+      .sort()
   }
 
   async commit() {
     for (const [path, file] of this.pending) {
       const target = join(this.root, path)
+      if (file.deleted) {
+        await rm(target, { force: true })
+        continue
+      }
       await mkdir(dirname(target), { recursive: true })
       await writeFile(target, file.content)
       if (file.executable) await chmod(target, 0o755)

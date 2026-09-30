@@ -17,6 +17,18 @@ export function managedBlock(id: string, style: CommentStyle, indent = '') {
     .join('\n')
 }
 
+/** Empties every managed block, so files can be compared regardless of what sync wrote. */
+export function stripManagedBlocks(content: string) {
+  const kept: string[] = []
+  let inBlock = false
+  for (const line of content.split('\n')) {
+    if (line.includes('create-web:end ')) inBlock = false
+    if (!inBlock) kept.push(line)
+    if (line.includes('create-web:start ')) inBlock = true
+  }
+  return kept.join('\n')
+}
+
 export async function syncManagedBlock(
   ctx: Context,
   path: string,

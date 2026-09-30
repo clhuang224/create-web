@@ -23,6 +23,18 @@ export async function copyTemplate(ctx: Context, name: string) {
   }
 }
 
+/** Undoes `copyTemplate`: deletes each file the template added, if unchanged. */
+export async function removeTemplate(ctx: Context, name: string) {
+  const root = join(templatesDir, name)
+  for (const file of await listFiles(root)) {
+    const source = relative(root, file).split(sep).join('/')
+    await ctx.removeFile(
+      toTargetPath(source),
+      await renderTemplateFile(ctx, name, source),
+    )
+  }
+}
+
 export async function renderTemplateFile(
   ctx: Context,
   name: string,
