@@ -48,6 +48,20 @@ export default defineFeature({
     await ctx.addFile('.husky/pre-commit', PRE_COMMIT, { executable: true })
     await ctx.addFile('.husky/pre-push', PRE_PUSH, { executable: true })
   },
+  async remove(ctx) {
+    ctx.pkg.removeDependencies(['husky'])
+    ctx.pkg.removeScripts({ prepare: 'husky' })
+    await ctx.removeFile('.husky/commit-msg', COMMIT_MSG)
+    for (const [path, content] of [
+      ['.husky/pre-commit', PRE_COMMIT],
+      ['.husky/pre-push', PRE_PUSH],
+    ] as const) {
+      await ctx.removeFile(path, content, { ignoreManagedBlocks: true })
+    }
+    ctx.note(
+      'Run `git config --unset core.hooksPath` and delete .husky/_ so Git stops looking for husky hooks.',
+    )
+  },
   async sync(ctx) {
     await syncManagedBlock(ctx, '.husky/pre-commit', {
       id: 'checks',

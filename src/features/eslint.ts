@@ -106,23 +106,50 @@ const configs = {
   none: typescriptConfig,
 }
 
-function addDependencies(ctx: Context, { skipFormatting, oxlint }: Options) {
+const BASE_DEPENDENCIES = {
+  vue: pick('eslint', 'eslint-plugin-vue', '@vue/eslint-config-typescript'),
+  react: pick(
+    'eslint',
+    '@eslint/js',
+    'typescript-eslint',
+    'eslint-plugin-react-hooks',
+    'eslint-plugin-react-refresh',
+    'globals',
+  ),
+  none: pick('eslint', '@eslint/js', 'typescript-eslint', 'globals'),
+}
+const OPTIONAL_DEPENDENCIES = ['eslint-config-prettier', 'eslint-plugin-oxlint']
+
+/** Adds what the config imports and drops optional plugins it no longer uses. */
+function syncDependencies(ctx: Context, { skipFormatting, oxlint }: Options) {
   ctx.pkg.addDevDependencies({
-    ...{
-      vue: pick('eslint', 'eslint-plugin-vue', '@vue/eslint-config-typescript'),
-      react: pick(
-        'eslint',
-        '@eslint/js',
-        'typescript-eslint',
-        'eslint-plugin-react-hooks',
-        'eslint-plugin-react-refresh',
-        'globals',
-      ),
-      none: pick('eslint', '@eslint/js', 'typescript-eslint', 'globals'),
-    }[ctx.options.framework ?? 'none'],
+    ...BASE_DEPENDENCIES[ctx.options.framework ?? 'none'],
     ...(skipFormatting ? pick('eslint-config-prettier') : {}),
     ...(oxlint ? pick('eslint-plugin-oxlint') : {}),
   })
+  ctx.pkg.removeDependencies(
+    [
+      !skipFormatting && 'eslint-config-prettier',
+      !oxlint && 'eslint-plugin-oxlint',
+    ].filter((name): name is string => name !== false),
+  )
+}
+
+/** Tells the user how to update an edited config by hand. */
+function manualSteps(current: string, { skipFormatting, oxlint }: Options) {
+  const has = (text: string) => current.includes(text)
+  return [
+    oxlint &&
+      !has('eslint-plugin-oxlint') &&
+      `add \`...pluginOxlint.buildFromOxlintConfigFile('${OXLINT_CONFIG}')\` from eslint-plugin-oxlint`,
+    !oxlint && has('eslint-plugin-oxlint') && 'remove eslint-plugin-oxlint',
+    skipFormatting &&
+      !has('eslint-config-prettier') &&
+      'add `skipFormatting` from eslint-config-prettier/flat last',
+    !skipFormatting &&
+      has('eslint-config-prettier') &&
+      'remove eslint-config-prettier',
+  ].filter((step): step is string => step !== false)
 }
 
 export default defineFeature({
@@ -147,20 +174,27 @@ export default defineFeature({
       return
 
     if (await ctx.canRegenerate(CONFIG)) {
-      addDependencies(ctx, options)
+      syncDependencies(ctx, options)
       ctx.writeGenerated(CONFIG, next)
-    } else {
+      return
+    }
+    const steps = current === undefined ? [] : manualSteps(current, options)
+    if (steps.length > 0) {
       ctx.note(
-        `${CONFIG} was edited, so it was not updated. ` +
-          [
-            options.oxlint &&
-              `Add \`...pluginOxlint.buildFromOxlintConfigFile('${OXLINT_CONFIG}')\` from eslint-plugin-oxlint.`,
-            options.skipFormatting &&
-              'Add `skipFormatting` from eslint-config-prettier/flat last.',
-          ]
-            .filter(Boolean)
-            .join(' '),
+        `${CONFIG} was edited, so it was not updated; ${steps.join('; ')}.`,
       )
     }
+  },
+  async remove(ctx) {
+    await ctx.removeFile(CONFIG)
+    ctx.pkg.removeDependencies([
+      ...new Set([
+        ...Object.values(BASE_DEPENDENCIES).flatMap((deps) =>
+          Object.keys(deps),
+        ),
+        ...OPTIONAL_DEPENDENCIES,
+      ]),
+    ])
+    syncLintScript(ctx)
   },
 })

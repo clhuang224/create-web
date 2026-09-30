@@ -11,10 +11,17 @@ export function syncLintScript(ctx: Context) {
     .filter((command) => command !== false)
     .join(' && ')
   const current = ctx.pkg.data.scripts?.lint
-  if (current === next) return
-  if (current === undefined || KNOWN_LINT_SCRIPTS.includes(current)) {
+  if (current === next || (current === undefined && next === '')) return
+  if (current !== undefined && !KNOWN_LINT_SCRIPTS.includes(current)) {
+    ctx.note(
+      next
+        ? `Update the "lint" script to run: ${next}`
+        : 'No linter is left; remove the "lint" script if it is no longer needed.',
+    )
+  } else if (next) {
     ctx.pkg.setScript('lint', next)
   } else {
-    ctx.note(`Update the "lint" script to run: ${next}`)
+    // The last linter was removed.
+    ctx.pkg.deleteScript('lint')
   }
 }

@@ -41,19 +41,14 @@ runs:
 `
 }
 
-export default defineFeature({
-  id: 'github-actions',
-  label: 'GitHub Actions',
-  hint: 'CI checks on pull requests',
-  kinds: ['frontend', 'library', 'monorepo'],
-  async apply(ctx) {
-    await ctx.addFile(
-      `.github/actions/setup-${ctx.options.packageManager}/action.yml`,
-      setupAction(ctx),
-    )
-    await ctx.addFile(
-      '.github/workflows/ci.yml',
-      `name: CI
+const CI_WORKFLOW = '.github/workflows/ci.yml'
+
+function setupActionFile(ctx: Context) {
+  return `.github/actions/setup-${ctx.options.packageManager}/action.yml`
+}
+
+function ciWorkflow(ctx: Context) {
+  return `name: CI
 
 on:
   pull_request:
@@ -77,8 +72,23 @@ ${managedBlock('checks', 'hash', '        ')}
       - uses: actions/checkout@v5
       - uses: ${setupActionPath(ctx)}
       - run: ${ctx.options.packageManager} run \${{ matrix.command }}
-`,
-    )
+`
+}
+
+export default defineFeature({
+  id: 'github-actions',
+  label: 'GitHub Actions',
+  hint: 'CI checks on pull requests',
+  kinds: ['frontend', 'library', 'monorepo'],
+  async apply(ctx) {
+    await ctx.addFile(setupActionFile(ctx), setupAction(ctx))
+    await ctx.addFile(CI_WORKFLOW, ciWorkflow(ctx))
+  },
+  async remove(ctx) {
+    await ctx.removeFile(setupActionFile(ctx), setupAction(ctx))
+    await ctx.removeFile(CI_WORKFLOW, ciWorkflow(ctx), {
+      ignoreManagedBlocks: true,
+    })
   },
   async sync(ctx) {
     const checks = [
@@ -88,7 +98,7 @@ ${managedBlock('checks', 'hash', '        ')}
       'test',
       'build',
     ].filter((script) => ctx.pkg.hasScript(script))
-    await syncManagedBlock(ctx, '.github/workflows/ci.yml', {
+    await syncManagedBlock(ctx, CI_WORKFLOW, {
       id: 'checks',
       style: 'hash',
       lines: [`command: [${checks.map((script) => `'${script}'`).join(', ')}]`],

@@ -122,20 +122,29 @@ Current architecture and boundaries.
 `,
 }
 
+function docFiles(ctx: Context): Record<string, string> {
+  return {
+    'AGENTS.md': agentsGuide(ctx),
+    // Claude Code reads CLAUDE.md; import AGENTS.md so both tools share one guide.
+    'CLAUDE.md': '@AGENTS.md\n',
+    ...DOCS,
+  }
+}
+
 export default defineFeature({
   id: 'agent-docs',
   label: 'Agent docs',
   hint: 'AGENTS.md, CLAUDE.md, docs/plan.md, docs/architecture.md',
   kinds: ['frontend', 'library', 'monorepo'],
   async apply(ctx) {
-    const files: Record<string, string> = {
-      'AGENTS.md': agentsGuide(ctx),
-      // Claude Code reads CLAUDE.md; import AGENTS.md so both tools share one guide.
-      'CLAUDE.md': '@AGENTS.md\n',
-      ...DOCS,
-    }
-    for (const [path, content] of Object.entries(files)) {
+    for (const [path, content] of Object.entries(docFiles(ctx))) {
       await ctx.addFile(path, content)
+    }
+  },
+  // Docs are usually edited soon after creation; those are kept (with a note).
+  async remove(ctx) {
+    for (const [path, content] of Object.entries(docFiles(ctx))) {
+      await ctx.removeFile(path, content, { ignoreManagedBlocks: true })
     }
   },
   async sync(ctx) {

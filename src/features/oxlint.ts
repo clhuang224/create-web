@@ -43,4 +43,9 @@ export default defineFeature({
       )
     }
   },
+  async remove(ctx) {
+    ctx.pkg.removeDependencies(['oxlint'])
+    await ctx.removeFile(CONFIG)
+    syncLintScript(ctx)
+  },
 })

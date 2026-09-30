@@ -1,26 +1,15 @@
+import type { Context } from '../core/context.ts'
 import { defineFeature } from '../core/feature.ts'
 import { setupActionPath } from './github-actions.ts'
 
-export default defineFeature({
-  id: 'github-pages',
-  label: 'GitHub Pages',
-  hint: 'deploy after CI passes on main',
-  kinds: ['frontend'],
-  // The deploy workflow assumes the app is at the repository root.
-  standaloneOnly: true,
-  requires: ['github-actions'],
-  async apply(ctx) {
-    const { pagesDomain } = ctx.options
-    if (pagesDomain) await ctx.addFile('public/CNAME', `${pagesDomain}\n`)
+const DEPLOY_WORKFLOW = '.github/workflows/deploy.yml'
 
-    // Without a custom domain the site is served from /<repo>/, so pass the base path to Vite.
-    const build = pagesDomain
-      ? ctx.run('build')
-      : `${ctx.run('build')} --base=/\${{ github.event.repository.name }}/`
-
-    await ctx.addFile(
-      '.github/workflows/deploy.yml',
-      `name: Deploy
+function deployWorkflow(ctx: Context) {
+  // Without a custom domain the site is served from /<repo>/, so pass the base path to Vite.
+  const build = ctx.options.pagesDomain
+    ? ctx.run('build')
+    : `${ctx.run('build')} --base=/\${{ github.event.repository.name }}/`
+  return `name: Deploy
 
 # Deploys only after CI passes on main, so a failing commit never goes live.
 on:
@@ -65,7 +54,25 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-`,
-    )
+`
+}
+
+export default defineFeature({
+  id: 'github-pages',
+  label: 'GitHub Pages',
+  hint: 'deploy after CI passes on main',
+  kinds: ['frontend'],
+  // The deploy workflow assumes the app is at the repository root.
+  standaloneOnly: true,
+  requires: ['github-actions'],
+  async apply(ctx) {
+    const { pagesDomain } = ctx.options
+    if (pagesDomain) await ctx.addFile('public/CNAME', `${pagesDomain}\n`)
+    await ctx.addFile(DEPLOY_WORKFLOW, deployWorkflow(ctx))
+  },
+  async remove(ctx) {
+    const { pagesDomain } = ctx.options
+    if (pagesDomain) await ctx.removeFile('public/CNAME', `${pagesDomain}\n`)
+    await ctx.removeFile(DEPLOY_WORKFLOW, deployWorkflow(ctx))
   },
 })
