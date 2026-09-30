@@ -23,7 +23,10 @@ Or install it globally, which also lets you add features to an existing project 
 volta install @clhuang224/create-web
 create-web create my-project
 create-web add <feature>
+create-web remove <feature>
 ```
+
+`remove` undoes what a feature added, such as switching from Prettier to oxfmt (`create-web remove prettier`, then `create-web add oxfmt`). Files and scripts you changed since are kept and listed. Tooling features (linters, formatters, Vitest, Git hooks, CI, deployment, docs) can be removed; framework features (routers, state management, Tailwind) cannot yet.
 
 `add` currently works on projects created by `create-web`, which record their choices in `.create-web.json`.
 

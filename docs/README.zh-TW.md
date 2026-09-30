@@ -23,7 +23,10 @@ pnpm create @clhuang224/web my-project
 volta install @clhuang224/create-web
 create-web create my-project
 create-web add <feature>
+create-web remove <feature>
 ```
+
+`remove` 會撤銷某個功能加入的內容，例如把 Prettier 換成 oxfmt（先 `create-web remove prettier`，再 `create-web add oxfmt`）。你之後改過的檔案和 scripts 會保留並列出。目前可以移除工具類的功能（linter、formatter、Vitest、Git hooks、CI、部署、文件），框架類的功能（路由、狀態管理、Tailwind）還不行。
 
 `add` 目前只支援由 `create-web` 建立的專案，這些專案會在 `.create-web.json` 中記錄當初的選項。
 

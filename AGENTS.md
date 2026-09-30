@@ -15,7 +15,7 @@ Record new architecture decisions in `docs/plan.md` instead of scattering them a
 ```text
 src/
 ├── cli.ts          # Entry; routes `create-web <dir>` to `create`
-├── commands/       # `create`, `add`, `add-member` (prompts, flags, install)
+├── commands/       # `create`, `add`, `remove`, `add-member` (prompts, flags, install)
 ├── core/           # Pipeline: resolver, virtual fs, context, manifest, formatting, workspaces
 ├── bases/          # Base project per kind and framework (create only)
 ├── features/       # Feature modules; `index.ts` is the registry
@@ -32,9 +32,10 @@ templates/          # Files copied into generated projects
 3. Edit shared files only through `src/editors/`. When an edit cannot be made safely (e.g. the user changed the file), call `ctx.note` with a manual step instead of overwriting.
    If a whole config file depends on other features (e.g. `eslint.config.js`), write it in `sync` with `ctx.writeGenerated` and check `ctx.canRegenerate` first, so user edits are never overwritten.
    If a file depends on project state that other features change (scripts, other features), write it with `managedBlock` in `apply` and fill it in `sync`, which runs for every present feature after each `create` or `add`.
-4. Add new dependency versions to `src/versions.ts`.
-5. Cover it in `src/core/generate.test.ts` (and `src/core/workspace.test.ts` if it behaves differently in a monorepo) and run `pnpm run e2e`.
-6. Decide where it lives in a monorepo: add `'monorepo'` to `kinds` if the root owns it, or set `standaloneOnly` if it cannot work inside a member yet.
+4. Implement `remove` to undo `apply` when you can: delete files with `ctx.removeFile` (pass the content `apply` wrote, or nothing for `writeGenerated` files), drop dependencies and scripts with `ctx.pkg.removeDependencies` / `removeScripts`. Keep file contents in functions or constants shared by `apply` and `remove`. Features without `remove` are reported as not removable.
+5. Add new dependency versions to `src/versions.ts`.
+6. Cover it in `src/core/generate.test.ts`, `src/core/remove.test.ts` for `remove`, and `src/core/workspace.test.ts` if it behaves differently in a monorepo; then run `pnpm run e2e`.
+7. Decide where it lives in a monorepo: add `'monorepo'` to `kinds` if the root owns it, or set `standaloneOnly` if it cannot work inside a member yet.
 
 ## Commands
 

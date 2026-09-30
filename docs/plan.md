@@ -126,13 +126,15 @@ Fixes:
 Design:
 
 - [x] 1. Split `create` into a pure option-resolution step and a prompt layer, and unit-test the resolution.
-- [ ] 3. `remove` command, so e.g. Prettier can be swapped for oxfmt.
+- [x] 3. `remove` command, so e.g. Prettier can be swapped for oxfmt.
 - [x] 4. Generated GitHub Pages deploys only after CI passes.
 - [x] 5. create-web's own publish workflow (and the generated library publish workflow) runs the full checks first.
 - [ ] 6. Evaluate release automation (semantic-release and alternatives) and a way to keep `src/versions.ts` current.
 - Recorded for later: 2 (sync order), 7 (manifest migrations), 8 (formatting with Prettier when oxfmt is chosen); see Known Limitations.
 
 ## Known Limitations
+
+- `remove` only covers tooling features. Pinia, the routers, Redux and Tailwind edit `main.ts` / `main.tsx`, `App` and the Vite config, and undoing those edits safely is not implemented; they are reported as not removable.
 
 - `sync` hooks run in registry order, and some depend on that implicitly: husky's `sync` must run after the linters' `sync` because the `lint` script is set there. Nothing enforces this; `after` only orders `apply`. Reordering the registry could silently produce hooks without `lint`.
 - The manifest has no schema version or migrations. Fields added later (like `generated`) are simply absent in older projects, which then behave as if every config file was edited. A future format change needs a `schemaVersion` and upgrade steps.
