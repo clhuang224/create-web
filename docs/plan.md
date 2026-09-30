@@ -109,7 +109,34 @@ Derived from `bus`, `queener` and `milestone-checker`:
 5. `backend` kind.
 6. Deferred items below.
 
+## Review Follow-ups (2026-10-01)
+
+From a full code review. Check items off as they land.
+
+Fixes:
+
+- [ ] A. `generate` re-hashes generated files it did not write, so a config the user edited is recorded as "generated" and overwritten by the next `add`.
+- [ ] B. `add` overwrites existing files (`copyTemplate`) and scripts (`addScripts`) without checking.
+- [ ] C. `create` does not validate `--pm` (and relies on downstream errors for `--kind` / `--framework`).
+- [ ] D. `runProcess` spawns `pnpm` / `bun` / `git` without a shell, which fails on Windows (`pnpm.cmd`).
+- [ ] F. Cancelling a prompt exits with code 0.
+- [ ] G. Generated `AGENTS.md` always says pre-commit runs lint, typecheck and format check, even when those scripts do not exist.
+- `create-web help` running `create help` is intended (any non-subcommand argument is a project directory).
+
+Design:
+
+- [ ] 1. Split `create` into a pure option-resolution step and a prompt layer, and unit-test the resolution.
+- [ ] 3. `remove` command, so e.g. Prettier can be swapped for oxfmt.
+- [ ] 4. Generated GitHub Pages deploys only after CI passes.
+- [ ] 5. create-web's own publish workflow (and the generated library publish workflow) runs the full checks first.
+- [ ] 6. Evaluate release automation (semantic-release and alternatives) and a way to keep `src/versions.ts` current.
+- Recorded for later: 2 (sync order), 7 (manifest migrations), 8 (formatting with Prettier when oxfmt is chosen); see Known Limitations.
+
 ## Known Limitations
+
+- `sync` hooks run in registry order, and some depend on that implicitly: husky's `sync` must run after the linters' `sync` because the `lint` script is set there. Nothing enforces this; `after` only orders `apply`. Reordering the registry could silently produce hooks without `lint`.
+- The manifest has no schema version or migrations. Fields added later (like `generated`) are simply absent in older projects, which then behave as if every config file was edited. A future format change needs a `schemaVersion` and upgrade steps.
+- create-web formats every file it writes with Prettier, even in projects that chose oxfmt. This works because oxfmt is configured to match Prettier's output (`printWidth: 80`, no package.json sorting), and e2e checks `oxfmt --check` on the result, but a new template or an oxfmt release could make the two disagree. Formatting with the project's own formatter would remove that risk.
 
 - Adding a root feature later (e.g. a formatter) does not update members: their ESLint configs will not pick up `skipFormatting` until regenerated. Running `sync` across members is not implemented.
 - Git hooks in a monorepo run every workspace's checks; they are not path-scoped like `bus`'s `check-staged-workspaces.sh` yet.
