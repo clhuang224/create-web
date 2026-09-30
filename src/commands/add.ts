@@ -8,6 +8,7 @@ import type { FeatureId } from '../core/types.ts'
 import { VirtualFs } from '../core/vfs.ts'
 import { memberCandidates } from '../core/workspace.ts'
 import { compatibleFeatures } from '../presets.ts'
+import { formatterLocation, formatTouchedProjects } from './project-format.ts'
 import { exitIfCancelled, runProcess, showNotes } from './shared.ts'
 
 export const addCommand = defineCommand({
@@ -114,6 +115,11 @@ export const addCommand = defineCommand({
         p.log.warn(
           `${manifest.packageManager} install failed; run it manually.`,
         )
+      } else {
+        const location = await formatterLocation(root, manifest)
+        await formatTouchedProjects(location.root, [
+          { dir: location.dir, fs: result.fs },
+        ])
       }
     }
     showNotes(result.notes)

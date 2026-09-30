@@ -16,6 +16,7 @@ import {
 } from '../core/workspace.ts'
 import { presetFeatures, presets } from '../presets.ts'
 import { clackPrompter } from './prompter.ts'
+import { formatTouchedProjects } from './project-format.ts'
 import { promptFeatures } from './prompts.ts'
 import { exitIfCancelled, parseList, runProcess, showNotes } from './shared.ts'
 
@@ -117,7 +118,8 @@ export const addMemberCommand = defineCommand({
       throw error
     }
     await result.fs.commit()
-    await (await recordMember(root, target)).commit()
+    const rootFs = await recordMember(root, target)
+    await rootFs.commit()
     p.log.success(
       `Created ${result.fs.changedPaths().length} files in ${target}`,
     )
@@ -130,6 +132,11 @@ export const addMemberCommand = defineCommand({
         p.log.warn(
           `${manifest.packageManager} install failed; run it manually.`,
         )
+      } else {
+        await formatTouchedProjects(root, [
+          { dir: target, fs: result.fs },
+          { dir: '', fs: rootFs },
+        ])
       }
     }
     showNotes(result.notes.map((note) => `${target}: ${note}`))

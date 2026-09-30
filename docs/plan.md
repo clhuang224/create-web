@@ -130,7 +130,8 @@ Design:
 - [x] 4. Generated GitHub Pages deploys only after CI passes.
 - [x] 5. create-web's own publish workflow (and the generated library publish workflow) runs the full checks first.
 - [x] 6. Evaluate release automation (semantic-release and alternatives) and a way to keep `src/versions.ts` current.
-- Recorded for later: 2 (sync order), 7 (manifest migrations), 8 (formatting with Prettier when oxfmt is chosen); see Known Limitations.
+- [x] 8. Format written files with the project's own formatter after install (was: always Prettier).
+- Recorded for later: 2 (sync order), 7 (manifest migrations); see Known Limitations.
 
 ## Release Automation (evaluation, not decided)
 
@@ -157,7 +158,7 @@ Options for (2): Renovate with a regex custom manager can read the `'package': '
 
 - `sync` hooks run in registry order, and some depend on that implicitly: husky's `sync` must run after the linters' `sync` because the `lint` script is set there. Nothing enforces this; `after` only orders `apply`. Reordering the registry could silently produce hooks without `lint`.
 - The manifest has no schema version or migrations. Fields added later (like `generated`) are simply absent in older projects, which then behave as if every config file was edited. A future format change needs a `schemaVersion` and upgrade steps.
-- create-web formats every file it writes with Prettier, even in projects that chose oxfmt. This works because oxfmt is configured to match Prettier's output (`printWidth: 80`, no package.json sorting), and e2e checks `oxfmt --check` on the result, but a new template or an oxfmt release could make the two disagree. Formatting with the project's own formatter would remove that risk.
+- create-web formats the files it writes with its built-in Prettier settings, then, after a successful install, runs the project's own formatter (Prettier or oxfmt, from the monorepo root for members) on just those files and re-hashes the generated configs it wrote. With `--no-install` or a failed install only the built-in pass happens, so a project whose formatter config differs from create-web's defaults (e.g. `semi: true`) needs `format` run by hand.
 
 - Adding a root feature later (e.g. a formatter) does not update members: their ESLint configs will not pick up `skipFormatting` until regenerated. Running `sync` across members is not implemented.
 - Git hooks in a monorepo run every workspace's checks; they are not path-scoped like `bus`'s `check-staged-workspaces.sh` yet.

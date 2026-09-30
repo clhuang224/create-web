@@ -12,6 +12,7 @@ import {
   UsageError,
 } from './create-options.ts'
 import { clackPrompter } from './prompter.ts'
+import { formatTouchedProjects } from './project-format.ts'
 import { runProcess, showNotes } from './shared.ts'
 
 export const createCommand = defineCommand({
@@ -129,6 +130,11 @@ export const createCommand = defineCommand({
       p.log.step(`Running ${packageManager} install`)
       if ((await runProcess(packageManager, ['install'], root)) !== 0) {
         p.log.warn(`${packageManager} install failed; run it manually.`)
+      } else {
+        await formatTouchedProjects(
+          root,
+          projects.map(({ path, result }) => ({ dir: path, fs: result.fs })),
+        )
       }
     }
 

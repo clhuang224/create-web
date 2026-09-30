@@ -8,6 +8,7 @@ import type { FeatureId } from '../core/types.ts'
 import { VirtualFs } from '../core/vfs.ts'
 import { features as registry } from '../features/index.ts'
 import { clackPrompter } from './prompter.ts'
+import { formatterLocation, formatTouchedProjects } from './project-format.ts'
 import { exitIfCancelled, runProcess, showNotes } from './shared.ts'
 
 export const removeCommand = defineCommand({
@@ -110,6 +111,11 @@ export const removeCommand = defineCommand({
         p.log.warn(
           `${manifest.packageManager} install failed; run it manually.`,
         )
+      } else {
+        const location = await formatterLocation(root, manifest)
+        await formatTouchedProjects(location.root, [
+          { dir: location.dir, fs: result.fs },
+        ])
       }
     }
     showNotes(result.notes)
