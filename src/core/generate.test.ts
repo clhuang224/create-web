@@ -415,6 +415,12 @@ describe('generate (create, library)', () => {
     expect(await fs.read('.github/workflows/publish.yml')).toContain(
       'npm publish',
     )
+    const publish = await fs.read('.github/workflows/publish.yml')
+    expect(publish).toContain('uses: ./.github/workflows/ci.yml')
+    expect(publish).toContain('needs: checks')
+    expect(await fs.read('.github/workflows/ci.yml')).toContain(
+      'workflow_call:',
+    )
   })
 
   it('rejects frontend-only features and frameworks', async () => {

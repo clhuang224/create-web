@@ -24,7 +24,11 @@ permissions:
   id-token: write
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
   publish:
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -39,6 +43,12 @@ jobs:
           NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}
 `,
     )
+    const ci = await ctx.fs.read('.github/workflows/ci.yml')
+    if (ci !== undefined && !ci.includes('workflow_call')) {
+      ctx.note(
+        'Add `workflow_call:` to the triggers in .github/workflows/ci.yml so publish.yml can run the checks before publishing.',
+      )
+    }
     ctx.note(
       'Add an NPM_TOKEN repository secret (or configure npm trusted publishing) before pushing a v* tag.',
     )

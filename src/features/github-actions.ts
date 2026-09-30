@@ -59,6 +59,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Lets publish workflows run the same checks before publishing.
+  workflow_call:
 
 permissions:
   contents: read
