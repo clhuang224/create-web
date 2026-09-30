@@ -4,7 +4,7 @@ import { setupActionPath } from './github-actions.ts'
 export default defineFeature({
   id: 'github-pages',
   label: 'GitHub Pages',
-  hint: 'deploy on push to main',
+  hint: 'deploy after CI passes on main',
   kinds: ['frontend'],
   // The deploy workflow assumes the app is at the repository root.
   standaloneOnly: true,
@@ -22,10 +22,12 @@ export default defineFeature({
       '.github/workflows/deploy.yml',
       `name: Deploy
 
+# Deploys only after CI passes on main, so a failing commit never goes live.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,9 +40,13 @@ concurrency:
 
 jobs:
   build:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Deploy exactly the commit CI checked.
+          ref: \${{ github.event.workflow_run.head_sha }}
       - uses: ${setupActionPath(ctx)}
       - uses: actions/configure-pages@v5
       - run: ${build}

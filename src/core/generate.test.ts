@@ -76,6 +76,21 @@ describe('generate (create)', () => {
       '--base=',
     )
   })
+  it('deploys only after CI succeeds, from the commit CI checked', async () => {
+    const { fs } = await generate({
+      root,
+      mode: 'create',
+      options: { ...lynn, features: ['github-pages'] },
+    })
+    const deploy = await fs.read('.github/workflows/deploy.yml')
+    expect(deploy).toContain('workflow_run:')
+    expect(deploy).toContain('workflows: [CI]')
+    expect(deploy).toContain(
+      "if: github.event.workflow_run.conclusion == 'success'",
+    )
+    expect(deploy).toContain('ref: ${{ github.event.workflow_run.head_sha }}')
+    expect(deploy).not.toContain('workflow_dispatch')
+  })
 })
 
 describe('generate (create, react)', () => {
