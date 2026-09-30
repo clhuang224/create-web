@@ -198,7 +198,7 @@ describe('generateWorkspace', () => {
 
 describe('memberPackageName', () => {
   it('scopes under the root name', () => {
-    expect(memberPackageName('bus', 'web')).toBe('@bus/web')
+    expect(memberPackageName('repo', 'web')).toBe('@repo/web')
     expect(memberPackageName('@org/repo', 'web')).toBe('@org/web')
   })
 })

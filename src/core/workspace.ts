@@ -24,7 +24,7 @@ export function memberPath(spec: Pick<MemberSpec, 'name' | 'kind'>) {
   return `${spec.kind === 'library' ? 'packages' : 'apps'}/${spec.name}`
 }
 
-/** Members are scoped under the root name, like `@bus/web`. */
+/** Members are scoped under the root name, like `@repo/web`. */
 export function memberPackageName(rootName: string, memberName: string) {
   const scope = rootName.replace(/^@/, '').split('/')[0]
   return `@${scope}/${memberName}`
