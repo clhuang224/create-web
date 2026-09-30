@@ -117,7 +117,7 @@ Fixes:
 
 - [x] A. `generate` re-hashes generated files it did not write, so a config the user edited is recorded as "generated" and overwritten by the next `add`.
 - [x] B. `add` overwrites existing files (`copyTemplate`) and scripts (`addScripts`) without checking.
-- [ ] C. `create` does not validate `--pm` (and relies on downstream errors for `--kind` / `--framework`).
+- [x] C. `create` does not validate `--pm` (and relies on downstream errors for `--kind` / `--framework`).
 - [x] D. `runProcess` spawns `pnpm` / `bun` / `git` without a shell, which fails on Windows (`pnpm.cmd`).
 - [x] F. Cancelling a prompt exits with code 0.
 - [x] G. Generated `AGENTS.md` always says pre-commit runs lint, typecheck and format check, even when those scripts do not exist.
@@ -125,7 +125,7 @@ Fixes:
 
 Design:
 
-- [ ] 1. Split `create` into a pure option-resolution step and a prompt layer, and unit-test the resolution.
+- [x] 1. Split `create` into a pure option-resolution step and a prompt layer, and unit-test the resolution.
 - [ ] 3. `remove` command, so e.g. Prettier can be swapped for oxfmt.
 - [ ] 4. Generated GitHub Pages deploys only after CI passes.
 - [ ] 5. create-web's own publish workflow (and the generated library publish workflow) runs the full checks first.

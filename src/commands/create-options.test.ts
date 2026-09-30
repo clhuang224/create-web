@@ -75,10 +75,34 @@ describe('resolveCreatePlan without prompts', () => {
     })
   })
 
+  it('rejects values outside the supported set', async () => {
+    await expect(plan({ dir: 'demo', pm: 'yarn' })).rejects.toThrow(
+      'Unknown --pm "yarn"; use pnpm, bun',
+    )
+    await expect(plan({ dir: 'demo', framework: 'svelte' })).rejects.toThrow(
+      'Unknown --framework "svelte"; use vue, react',
+    )
+    await expect(plan({ dir: 'demo', kind: 'website' })).rejects.toThrow(
+      'Unknown --kind "website"',
+    )
+    await expect(plan({ dir: 'demo', kind: 'backend' })).rejects.toThrow(
+      'backend projects are not supported yet',
+    )
+    await expect(plan({ dir: 'demo', preset: 'nope' })).rejects.toThrow(
+      'Unknown preset: nope',
+    )
+    await expect(
+      plan({ dir: 'demo', features: 'eslint,webpack' }),
+    ).rejects.toThrow('Unknown features: webpack')
+  })
+
   it('rejects flags that do not fit the project kind', async () => {
     await expect(
       plan({ dir: 'demo', kind: 'library', framework: 'vue' }),
     ).rejects.toThrow('--framework does not apply to library projects')
+    await expect(plan({ dir: 'demo', members: 'web:vue' })).rejects.toThrow(
+      '--members only applies to monorepo projects',
+    )
   })
 
   it('validates directory and package names', async () => {

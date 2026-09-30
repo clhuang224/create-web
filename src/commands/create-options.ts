@@ -11,6 +11,7 @@ import {
   splitWorkspaceFeatures,
   workspacePresetFeatures,
 } from '../core/workspace.ts'
+import { features as registry } from '../features/index.ts'
 import {
   compatibleFeatures,
   type Preset,
@@ -55,11 +56,25 @@ export interface ResolveDeps {
 
 type MemberBase = Omit<MemberSpec, 'features'>
 
+const KINDS = ['frontend', 'library', 'monorepo'] as const
+const FRAMEWORKS = ['vue', 'react'] as const
+const PACKAGE_MANAGERS = ['pnpm', 'bun'] as const
+
 const PACKAGE_NAME = /^[a-z0-9][a-z0-9._-]*$/
 const SCOPED_PACKAGE_NAME = /^@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/
 
 export const isValidPackageName = (name: string) =>
   PACKAGE_NAME.test(name) || SCOPED_PACKAGE_NAME.test(name)
+
+function oneOf<T extends string>(
+  value: string | undefined,
+  allowed: readonly T[],
+  flag: string,
+): T | undefined {
+  if (value === undefined) return undefined
+  if ((allowed as readonly string[]).includes(value)) return value as T
+  throw new UsageError(`Unknown ${flag} "${value}"; use ${allowed.join(', ')}`)
+}
 
 /**
  * Turns flags (and, when a prompter is given, answers) into what to generate.
@@ -80,8 +95,11 @@ export async function resolveCreatePlan(
   const prompter = args.yes || preset ? undefined : deps.prompter
   const defaults: Preset = preset ?? presets.lynn
 
+  if (args.kind === 'backend') {
+    throw new UsageError('backend projects are not supported yet')
+  }
   const kind: ProjectKind =
-    (args.kind as ProjectKind | undefined) ??
+    oneOf(args.kind, KINDS, '--kind') ??
     (prompter
       ? await prompter.select<ProjectKind>('Project kind', [
           { value: 'frontend', label: 'Frontend', hint: 'Vite SPA' },
@@ -99,11 +117,11 @@ export async function resolveCreatePlan(
           },
         ])
       : 'frontend')
-  const frameworkFlag = args.framework as Framework | undefined
+  const frameworkFlag = oneOf(args.framework, FRAMEWORKS, '--framework')
   if (kind === 'library' && frameworkFlag) {
     throw new UsageError('--framework does not apply to library projects')
   }
-  const packageManagerFlag = args.pm as PackageManager | undefined
+  const packageManagerFlag = oneOf(args.pm, PACKAGE_MANAGERS, '--pm')
 
   const placeholder = kind === 'library' ? 'my-lib' : 'my-app'
   const dir =
@@ -169,6 +187,9 @@ export async function resolveCreatePlan(
       ? (parseMembers(args.members) ??
         (await askMembers(prompter, askFramework)))
       : []
+  if (kind !== 'monorepo' && args.members !== undefined) {
+    throw new UsageError('--members only applies to monorepo projects')
+  }
 
   const presetFor = (source: Preset) =>
     kind === 'monorepo'
@@ -225,6 +246,11 @@ export async function resolveCreatePlan(
 function parseFeatures(value: string | undefined) {
   const items = parseList(value)
   if (!items) return undefined
+  const known = new Set<string>(registry.map((feature) => feature.id))
+  const unknown = items.filter((item) => !known.has(item))
+  if (unknown.length > 0) {
+    throw new UsageError(`Unknown features: ${unknown.join(', ')}`)
+  }
   return items as FeatureId[]
 }
 
