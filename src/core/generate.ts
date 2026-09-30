@@ -82,11 +82,18 @@ export async function generate({
   ctx.pkg.save(fs)
   await formatChangedFiles(fs)
 
-  // Hash after formatting, since that is what lands on disk.
+  // Hash after formatting, since that is what lands on disk. Files this run did
+  // not write keep their old hash: re-hashing them would record user edits as
+  // "generated" and let the next run overwrite them.
   const hashes: Record<string, string> = {}
   for (const path of generatedPaths) {
     const content = await fs.read(path)
-    if (content !== undefined) hashes[path] = hashContent(content)
+    if (content === undefined) continue
+    const previousHash = previousHashes[path]
+    hashes[path] =
+      fs.isPending(path) || previousHash === undefined
+        ? hashContent(content)
+        : previousHash
   }
   writeManifest(fs, finalOptions, {
     generated: hashes,

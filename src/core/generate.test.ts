@@ -287,6 +287,32 @@ describe('oxlint and oxfmt', () => {
     expect(notes).toHaveLength(1)
     expect(notes[0]).toContain('buildFromOxlintConfigFile')
   })
+
+  it('keeps protecting an edited config on later runs', async () => {
+    const base: ProjectOptions = { ...lynn, features: ['eslint'] }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+    const configPath = join(root, 'eslint.config.js')
+    await writeFile(
+      configPath,
+      `${await readFile(configPath, 'utf8')}// custom\n`,
+    )
+
+    for (const [feature, existing] of [
+      ['oxlint', ['eslint']],
+      ['prettier', ['eslint', 'oxlint']],
+    ] as const) {
+      const { fs, notes } = await generate({
+        root,
+        mode: 'add',
+        options: { ...base, features: [feature] },
+        existing: [...existing],
+      })
+      await fs.commit()
+      expect(notes).toHaveLength(1)
+    }
+
+    expect(await readFile(configPath, 'utf8')).toContain('// custom')
+  })
 })
 
 describe('generate (create, library)', () => {
