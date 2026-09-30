@@ -127,8 +127,8 @@ Design:
 
 - [x] 1. Split `create` into a pure option-resolution step and a prompt layer, and unit-test the resolution.
 - [ ] 3. `remove` command, so e.g. Prettier can be swapped for oxfmt.
-- [ ] 4. Generated GitHub Pages deploys only after CI passes.
-- [ ] 5. create-web's own publish workflow (and the generated library publish workflow) runs the full checks first.
+- [x] 4. Generated GitHub Pages deploys only after CI passes.
+- [x] 5. create-web's own publish workflow (and the generated library publish workflow) runs the full checks first.
 - [ ] 6. Evaluate release automation (semantic-release and alternatives) and a way to keep `src/versions.ts` current.
 - Recorded for later: 2 (sync order), 7 (manifest migrations), 8 (formatting with Prettier when oxfmt is chosen); see Known Limitations.
 
