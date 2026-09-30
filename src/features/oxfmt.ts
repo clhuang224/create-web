@@ -8,10 +8,10 @@ export default defineFeature({
   kinds: ['frontend', 'library', 'monorepo'],
   category: 'formatter',
   conflicts: ['prettier'],
-  apply(ctx) {
+  async apply(ctx) {
     ctx.pkg.addDevDependencies(pick('oxfmt'))
     ctx.pkg.addScripts({ format: 'oxfmt', 'format:check': 'oxfmt --check' })
-    ctx.fs.write(
+    await ctx.addFile(
       '.oxfmtrc.json',
       `${JSON.stringify(
         {

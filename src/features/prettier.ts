@@ -13,15 +13,18 @@ export default defineFeature({
   kinds: ['frontend', 'library', 'monorepo'],
   category: 'formatter',
   conflicts: ['oxfmt'],
-  apply(ctx) {
+  async apply(ctx) {
     ctx.pkg.addDevDependencies(pick('prettier'))
     ctx.pkg.addScripts({
       format: 'prettier --write .',
       'format:check': 'prettier --check .',
     })
-    ctx.fs.write('.prettierrc', `${JSON.stringify(prettierOptions, null, 2)}\n`)
+    await ctx.addFile(
+      '.prettierrc',
+      `${JSON.stringify(prettierOptions, null, 2)}\n`,
+    )
     // Markdown is left alone: aligned tables with CJK text read worse after formatting.
-    ctx.fs.write(
+    await ctx.addFile(
       '.prettierignore',
       ['dist', 'coverage', 'pnpm-lock.yaml', 'bun.lock', '*.md', ''].join('\n'),
     )

@@ -19,7 +19,7 @@ export async function copyTemplate(ctx: Context, name: string) {
     const source = relative(root, file).split(sep).join('/')
     const target = toTargetPath(source)
     if (ctx.workspaceMember && WORKSPACE_ROOT_FILES.has(target)) continue
-    ctx.fs.write(target, await renderTemplateFile(ctx, name, source))
+    await ctx.addFile(target, await renderTemplateFile(ctx, name, source))
   }
 }
 

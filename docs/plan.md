@@ -115,8 +115,8 @@ From a full code review. Check items off as they land.
 
 Fixes:
 
-- [ ] A. `generate` re-hashes generated files it did not write, so a config the user edited is recorded as "generated" and overwritten by the next `add`.
-- [ ] B. `add` overwrites existing files (`copyTemplate`) and scripts (`addScripts`) without checking.
+- [x] A. `generate` re-hashes generated files it did not write, so a config the user edited is recorded as "generated" and overwritten by the next `add`.
+- [x] B. `add` overwrites existing files (`copyTemplate`) and scripts (`addScripts`) without checking.
 - [ ] C. `create` does not validate `--pm` (and relies on downstream errors for `--kind` / `--framework`).
 - [ ] D. `runProcess` spawns `pnpm` / `bun` / `git` without a shell, which fails on Windows (`pnpm.cmd`).
 - [ ] F. Cancelling a prompt exits with code 0.

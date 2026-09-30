@@ -142,6 +142,54 @@ describe('generate (add)', () => {
     ])
   })
 
+  it('keeps existing files and scripts instead of overwriting them', async () => {
+    const base: ProjectOptions = { ...lynn, features: [] }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+    await writeFile(join(root, 'vitest.config.ts'), '// my own config\n')
+    await writeFile(join(root, '.prettierrc'), '{ "semi": true }\n')
+    const pkgPath = join(root, 'package.json')
+    const pkg = JSON.parse(await readFile(pkgPath, 'utf8'))
+    pkg.scripts.test = 'node --test'
+    await writeFile(pkgPath, JSON.stringify(pkg, null, 2))
+
+    const { fs, notes } = await generate({
+      root,
+      mode: 'add',
+      options: { ...base, features: ['vitest', 'prettier'] },
+      existing: [],
+    })
+    await fs.commit()
+
+    expect(await readFile(join(root, 'vitest.config.ts'), 'utf8')).toBe(
+      '// my own config\n',
+    )
+    expect(await readFile(join(root, '.prettierrc'), 'utf8')).toBe(
+      '{ "semi": true }\n',
+    )
+    const after = JSON.parse(await readFile(pkgPath, 'utf8'))
+    expect(after.scripts.test).toBe('node --test')
+    // Scripts the project did not have are still added.
+    expect(after.scripts['test:watch']).toBe('vitest')
+    expect(notes).toEqual([
+      'The "test" script already exists ("node --test") and was kept; create-web would set it to "vitest run".',
+      'vitest.config.ts already exists and was kept; create-web did not write its own version.',
+      '.prettierrc already exists and was kept; create-web did not write its own version.',
+    ])
+  })
+
+  it('does not report files that already match', async () => {
+    const base: ProjectOptions = { ...lynn, features: ['prettier'] }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+
+    const { notes } = await generate({
+      root,
+      mode: 'add',
+      options: { ...base, features: ['oxlint'] },
+      existing: [],
+    })
+    expect(notes).toEqual([])
+  })
+
   it('leaves user-edited files alone and reports a manual step', async () => {
     await (
       await generate({

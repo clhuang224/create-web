@@ -28,7 +28,7 @@ templates/          # Files copied into generated projects
 ## Adding A Feature
 
 1. Create `src/features/<id>.ts` with `defineFeature`, add the id to `FeatureId`, and register it in `src/features/index.ts`.
-2. Put static files under `templates/<name>/` and copy them with `copyTemplate`. A single leading `_` in a file name becomes `.` (npm drops dotfiles like `.gitignore` on publish).
+2. Write new files with `ctx.addFile` (never `ctx.fs.write`), which keeps a file the user already has and records a note instead. Put static files under `templates/<name>/` and copy them with `copyTemplate`, which uses `ctx.addFile`. Add scripts with `ctx.pkg.addScripts`, which likewise keeps scripts the project already had. A single leading `_` in a file name becomes `.` (npm drops dotfiles like `.gitignore` on publish).
 3. Edit shared files only through `src/editors/`. When an edit cannot be made safely (e.g. the user changed the file), call `ctx.note` with a manual step instead of overwriting.
    If a whole config file depends on other features (e.g. `eslint.config.js`), write it in `sync` with `ctx.writeGenerated` and check `ctx.canRegenerate` first, so user edits are never overwritten.
    If a file depends on project state that other features change (scripts, other features), write it with `managedBlock` in `apply` and fill it in `sync`, which runs for every present feature after each `create` or `add`.

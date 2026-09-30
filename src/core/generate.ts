@@ -1,7 +1,7 @@
 import { selectBase } from '../bases/index.ts'
 import { features as registry } from '../features/index.ts'
 import type { Context, Mode } from './context.ts'
-import { formatChangedFiles } from './format.ts'
+import { formatChangedFiles, formatSource } from './format.ts'
 import { hashContent, readManifest, writeManifest } from './manifest.ts'
 import { PackageJsonEditor } from './package-json.ts'
 import { ResolveError, resolveFeatures } from './resolver.ts'
@@ -59,11 +59,30 @@ export async function generate({
     mode,
     options: finalOptions,
     fs,
-    pkg: await PackageJsonEditor.load(fs),
+    pkg: await PackageJsonEditor.load(fs, (script, current, next) =>
+      notes.push(
+        `The "${script}" script already exists ("${current}") and was kept; create-web would set it to "${next}".`,
+      ),
+    ),
     workspaceMember: workspace !== undefined,
     has: (feature) => present.has(feature) || inherited.has(feature),
     run: (script) => `${options.packageManager} run ${script}`,
     note: (message) => notes.push(message),
+    addFile: async (path, content, fileOptions) => {
+      // Files written earlier in this run (e.g. by the base) may be replaced.
+      if (!fs.isPending(path)) {
+        const current = await fs.read(path)
+        if (current !== undefined) {
+          if (!(await sameContent(path, current, content))) {
+            notes.push(
+              `${path} already exists and was kept; create-web did not write its own version.`,
+            )
+          }
+          return
+        }
+      }
+      fs.write(path, content, fileOptions)
+    },
     writeGenerated: (path, content) => {
       fs.write(path, content)
       generatedPaths.add(path)
@@ -118,4 +137,9 @@ function assertMemberFeatures(features: FeatureId[]) {
       throw new ResolveError(`"${id}" is not supported inside a monorepo yet`)
     }
   }
+}
+
+async function sameContent(path: string, current: string, next: string) {
+  const normalize = (content: string) => content.replace(/\s+/g, ' ').trim()
+  return normalize(current) === normalize(await formatSource(path, next))
 }

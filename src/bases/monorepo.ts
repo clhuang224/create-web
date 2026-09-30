@@ -23,7 +23,7 @@ export async function applyMonorepoBase(ctx: Context) {
   applyStandaloneFields(ctx)
 
   if (packageManager === 'pnpm') {
-    ctx.fs.write(
+    await ctx.addFile(
       'pnpm-workspace.yaml',
       `packages:\n${WORKSPACE_GLOBS.map((glob) => `  - ${glob}`).join('\n')}\n`,
     )

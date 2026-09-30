@@ -18,6 +18,15 @@ export interface Context {
   /** Record a manual step the user still has to do. */
   note(message: string): void
   /**
+   * Adds a new file. If the file already exists (e.g. `add` on a project the
+   * user has worked on), the user's copy is kept and a note is recorded.
+   */
+  addFile(
+    path: string,
+    content: string,
+    options?: { executable?: boolean },
+  ): Promise<void>
+  /**
    * Writes a file that create-web owns and may regenerate later. Its hash is
    * recorded in the manifest so later runs can tell whether the user edited it.
    */

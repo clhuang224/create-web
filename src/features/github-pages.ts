@@ -9,16 +9,16 @@ export default defineFeature({
   // The deploy workflow assumes the app is at the repository root.
   standaloneOnly: true,
   requires: ['github-actions'],
-  apply(ctx) {
+  async apply(ctx) {
     const { pagesDomain } = ctx.options
-    if (pagesDomain) ctx.fs.write('public/CNAME', `${pagesDomain}\n`)
+    if (pagesDomain) await ctx.addFile('public/CNAME', `${pagesDomain}\n`)
 
     // Without a custom domain the site is served from /<repo>/, so pass the base path to Vite.
     const build = pagesDomain
       ? ctx.run('build')
       : `${ctx.run('build')} --base=/\${{ github.event.repository.name }}/`
 
-    ctx.fs.write(
+    await ctx.addFile(
       '.github/workflows/deploy.yml',
       `name: Deploy
 

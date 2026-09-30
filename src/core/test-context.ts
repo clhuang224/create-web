@@ -21,6 +21,7 @@ export function createTestContext(mode: Mode = 'create') {
     has: () => false,
     run: (script) => `pnpm run ${script}`,
     note: (message) => notes.push(message),
+    addFile: async (path, content, options) => fs.write(path, content, options),
     writeGenerated: (path, content) => fs.write(path, content),
     canRegenerate: async () => true,
   }

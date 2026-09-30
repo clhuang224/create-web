@@ -10,8 +10,8 @@ export default defineFeature({
   // The workflow assumes the package is at the repository root.
   standaloneOnly: true,
   requires: ['github-actions'],
-  apply(ctx) {
-    ctx.fs.write(
+  async apply(ctx) {
+    await ctx.addFile(
       '.github/workflows/publish.yml',
       `name: Publish
 

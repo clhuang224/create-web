@@ -46,12 +46,12 @@ export default defineFeature({
   label: 'GitHub Actions',
   hint: 'CI checks on pull requests',
   kinds: ['frontend', 'library', 'monorepo'],
-  apply(ctx) {
-    ctx.fs.write(
+  async apply(ctx) {
+    await ctx.addFile(
       `.github/actions/setup-${ctx.options.packageManager}/action.yml`,
       setupAction(ctx),
     )
-    ctx.fs.write(
+    await ctx.addFile(
       '.github/workflows/ci.yml',
       `name: CI
 

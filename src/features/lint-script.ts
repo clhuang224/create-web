@@ -13,7 +13,7 @@ export function syncLintScript(ctx: Context) {
   const current = ctx.pkg.data.scripts?.lint
   if (current === next) return
   if (current === undefined || KNOWN_LINT_SCRIPTS.includes(current)) {
-    ctx.pkg.addScripts({ lint: next })
+    ctx.pkg.setScript('lint', next)
   } else {
     ctx.note(`Update the "lint" script to run: ${next}`)
   }

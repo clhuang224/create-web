@@ -115,11 +115,7 @@ export default defineFeature({
       ...DOCS,
     }
     for (const [path, content] of Object.entries(files)) {
-      if (await ctx.fs.exists(path)) {
-        ctx.note(`${path} already exists and was left unchanged.`)
-      } else {
-        ctx.fs.write(path, content)
-      }
+      await ctx.addFile(path, content)
     }
   },
   async sync(ctx) {

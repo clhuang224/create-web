@@ -41,12 +41,12 @@ export default defineFeature({
   label: 'Husky',
   hint: 'Git hooks with a Conventional Commits check',
   kinds: ['frontend', 'library', 'monorepo'],
-  apply(ctx) {
+  async apply(ctx) {
     ctx.pkg.addDevDependencies(pick('husky'))
     ctx.pkg.addScripts({ prepare: 'husky' })
-    ctx.fs.write('.husky/commit-msg', COMMIT_MSG, { executable: true })
-    ctx.fs.write('.husky/pre-commit', PRE_COMMIT, { executable: true })
-    ctx.fs.write('.husky/pre-push', PRE_PUSH, { executable: true })
+    await ctx.addFile('.husky/commit-msg', COMMIT_MSG, { executable: true })
+    await ctx.addFile('.husky/pre-commit', PRE_COMMIT, { executable: true })
+    await ctx.addFile('.husky/pre-push', PRE_PUSH, { executable: true })
   },
   async sync(ctx) {
     await syncManagedBlock(ctx, '.husky/pre-commit', {
