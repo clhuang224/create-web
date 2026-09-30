@@ -13,7 +13,7 @@ import {
 } from './create-options.ts'
 import { clackPrompter } from './prompter.ts'
 import { formatTouchedProjects } from './project-format.ts'
-import { runProcess, showNotes } from './shared.ts'
+import { runProcess, showNotes, installDependencies } from './shared.ts'
 
 export const createCommand = defineCommand({
   meta: { name: 'create', description: 'Create a new project' },
@@ -128,7 +128,7 @@ export const createCommand = defineCommand({
     }
     if (args.install) {
       p.log.step(`Running ${packageManager} install`)
-      if ((await runProcess(packageManager, ['install'], root)) !== 0) {
+      if ((await installDependencies(packageManager, root)) !== 0) {
         p.log.warn(`${packageManager} install failed; run it manually.`)
       } else {
         await formatTouchedProjects(

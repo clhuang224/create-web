@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import * as p from '@clack/prompts'
+import type { PackageManager } from '../core/types.ts'
 
 export function exitIfCancelled<T>(value: T): Exclude<T, symbol> {
   if (p.isCancel(value)) {
@@ -40,4 +41,20 @@ export function parseList(value: string | undefined) {
     ?.split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+/**
+ * Installs dependencies after create-web changed package.json. pnpm freezes
+ * the lockfile in CI by default, which would reject exactly the dependency
+ * changes create-web just made, so it is told not to.
+ */
+export function installDependencies(
+  packageManager: PackageManager,
+  cwd: string,
+) {
+  const args =
+    packageManager === 'pnpm'
+      ? ['install', '--no-frozen-lockfile']
+      : ['install']
+  return runProcess(packageManager, args, cwd)
 }

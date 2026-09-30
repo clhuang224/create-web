@@ -9,7 +9,7 @@ import { VirtualFs } from '../core/vfs.ts'
 import { memberCandidates } from '../core/workspace.ts'
 import { compatibleFeatures } from '../presets.ts'
 import { formatterLocation, formatTouchedProjects } from './project-format.ts'
-import { exitIfCancelled, runProcess, showNotes } from './shared.ts'
+import { exitIfCancelled, showNotes, installDependencies } from './shared.ts'
 
 export const addCommand = defineCommand({
   meta: {
@@ -109,9 +109,7 @@ export const addCommand = defineCommand({
 
     if (args.install) {
       p.log.step(`Running ${manifest.packageManager} install`)
-      if (
-        (await runProcess(manifest.packageManager, ['install'], root)) !== 0
-      ) {
+      if ((await installDependencies(manifest.packageManager, root)) !== 0) {
         p.log.warn(
           `${manifest.packageManager} install failed; run it manually.`,
         )

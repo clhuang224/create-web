@@ -18,7 +18,12 @@ import { presetFeatures, presets } from '../presets.ts'
 import { clackPrompter } from './prompter.ts'
 import { formatTouchedProjects } from './project-format.ts'
 import { promptFeatures } from './prompts.ts'
-import { exitIfCancelled, parseList, runProcess, showNotes } from './shared.ts'
+import {
+  exitIfCancelled,
+  parseList,
+  showNotes,
+  installDependencies,
+} from './shared.ts'
 
 const MEMBER_NAME = /^[a-z0-9][a-z0-9._-]*$/
 type MemberType = 'vue' | 'react' | 'library'
@@ -126,9 +131,7 @@ export const addMemberCommand = defineCommand({
 
     if (args.install) {
       p.log.step(`Running ${manifest.packageManager} install`)
-      if (
-        (await runProcess(manifest.packageManager, ['install'], root)) !== 0
-      ) {
+      if ((await installDependencies(manifest.packageManager, root)) !== 0) {
         p.log.warn(
           `${manifest.packageManager} install failed; run it manually.`,
         )

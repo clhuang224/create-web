@@ -9,7 +9,7 @@ import { VirtualFs } from '../core/vfs.ts'
 import { features as registry } from '../features/index.ts'
 import { clackPrompter } from './prompter.ts'
 import { formatterLocation, formatTouchedProjects } from './project-format.ts'
-import { exitIfCancelled, runProcess, showNotes } from './shared.ts'
+import { exitIfCancelled, showNotes, installDependencies } from './shared.ts'
 
 export const removeCommand = defineCommand({
   meta: {
@@ -105,9 +105,7 @@ export const removeCommand = defineCommand({
 
     if (args.install) {
       p.log.step(`Running ${manifest.packageManager} install`)
-      if (
-        (await runProcess(manifest.packageManager, ['install'], root)) !== 0
-      ) {
+      if ((await installDependencies(manifest.packageManager, root)) !== 0) {
         p.log.warn(
           `${manifest.packageManager} install failed; run it manually.`,
         )

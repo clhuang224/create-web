@@ -2,6 +2,9 @@
 # Generates projects for representative option sets, installs them, and runs their own checks.
 set -eu
 
+# Behave like GitHub Actions locally too (e.g. pnpm freezes lockfiles when CI is set).
+export CI=true
+
 cli="$(pwd)/dist/cli.mjs"
 export cli
 workdir="$(mktemp -d)"
