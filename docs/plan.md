@@ -23,7 +23,7 @@ Product and architecture direction for Web Starter CLI. Record decisions here; k
 | Dependency versions | Pinned in the tool, bumped manually                                                                                                     |
 | Distribution        | Public npm as `@clhuang224/create-web` (`pnpm create @clhuang224/web`)                                                                  |
 | Tool repo tooling   | pnpm, TypeScript strict, tsdown, Vitest, ESLint + Prettier, husky; same conventions as generated projects                               |
-| Commit lint         | Plain shell `commit-msg` hook (Conventional Commits regex), as used in `bus` and `queener`; Commitlint optional at most                 |
+| Commit lint         | Plain shell `commit-msg` hook (Conventional Commits regex), no extra dependency; Commitlint optional at most                 |
 | Env variables       | Framework/Vite built-in for frontend; dotenv only for Node/backend kinds                                                                |
 | Linter / formatter | ESLint, oxlint, or both; Prettier or oxfmt (mutually exclusive). With both linters, `lint` runs `oxlint && eslint .` and ESLint uses eslint-plugin-oxlint to skip overlapping rules. oxfmt is configured to match Prettier's output (`printWidth: 80`, no package.json sorting). `lynn` uses ESLint + Prettier |
 | React routing | React Router in declarative mode (`BrowserRouter` + `<Routes>`), matching the static SPA deploy; framework mode is deferred with other SSR options |
@@ -46,7 +46,7 @@ The first prompt picks a kind. Each kind has its own base template and its own s
 A monorepo is not a separate generator: it is a workspace root plus N projects produced by the other kinds (`src/core/workspace.ts`). `create-web add-member <name> --type vue|react|library` adds a project later through the same pipeline.
 
 - **Root** (`kind: monorepo`): `pnpm-workspace.yaml` or `package.json` `workspaces`, root scripts that fan out (`pnpm -r --if-present run <script>` / `bun run --filter '*' <script>`), and the features whose `kinds` include `monorepo`: formatter, husky, GitHub Actions, agent docs.
-- **Members**: frontend apps under `apps/<name>`, libraries under `packages/<name>`, named `@<root>/<name>` (as in `bus`). They get linters, tests and framework features, but no root-owned files (`.gitignore`, `.editorconfig`, `packageManager`, `engines`).
+- **Members**: frontend apps under `apps/<name>`, libraries under `packages/<name>`, named `@<root>/<name>`. They get linters, tests and framework features, but no root-owned files (`.gitignore`, `.editorconfig`, `packageManager`, `engines`).
 - **One feature list, split**: `create` takes a single feature list and assigns each feature to the root or to the members that support it; features that fit neither are rejected.
 - **Inherited features**: each member's manifest records the root's features under `workspace.inherited`. They count for `ctx.has` (e.g. ESLint turns on `skipFormatting` because the root has Prettier) but are never applied in the member. `create-web add` inside a member refuses root-owned features.
 - **Standalone-only features**: `github-pages` and `publish` write workflows that assume the project is at the repository root, so they are marked `standaloneOnly` and are not offered inside a monorepo yet.
@@ -84,7 +84,7 @@ prompts / flags / preset
 
 ### Author conventions to generate
 
-Derived from `bus`, `queener` and `milestone-checker`:
+Conventions every generated project gets:
 
 - `.husky/commit-msg` with the Conventional Commits regex
 - `.husky/pre-commit` running lint and typecheck; `.husky/pre-push` running tests (path-scoped in monorepos)
@@ -161,7 +161,7 @@ Options for (2): Renovate with a regex custom manager can read the `'package': '
 - create-web formats the files it writes with its built-in Prettier settings, then, after a successful install, runs the project's own formatter (Prettier or oxfmt, from the monorepo root for members) on just those files and re-hashes the generated configs it wrote. With `--no-install` or a failed install only the built-in pass happens, so a project whose formatter config differs from create-web's defaults (e.g. `semi: true`) needs `format` run by hand.
 
 - Adding a root feature later (e.g. a formatter) does not update members: their ESLint configs will not pick up `skipFormatting` until regenerated. Running `sync` across members is not implemented.
-- Git hooks in a monorepo run every workspace's checks; they are not path-scoped like `bus`'s `check-staged-workspaces.sh` yet.
+- Git hooks in a monorepo run every workspace's checks; they are not path-scoped yet (running only the checks of workspaces with staged changes).
 - Members are independent: `create-web` does not add `workspace:*` dependencies between them. An app that uses a library member must add the dependency and build the library first (its `exports` point to `dist`).
 - The e2e check covers pnpm monorepos only; bun workspaces are covered by unit tests.
 - Generated config files from before hash tracking (projects created before this was added) are treated as edited, so `add` reports manual steps for them instead of updating them.
@@ -178,7 +178,7 @@ Svelte Navigator is unmaintained (Svelte 3 only). Routing will likely come from 
 
 ### Meta frameworks and SSR
 
-Nuxt, SvelteKit, and React Router framework mode (as used in `bus`). These change the deploy story (SSR/SSG vs static GitHub Pages), so they come after the SPA path is stable.
+Nuxt, SvelteKit, and React Router framework mode. These change the deploy story (SSR/SSG vs static GitHub Pages), so they come after the SPA path is stable.
 
 ## Open questions
 
