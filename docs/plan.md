@@ -118,9 +118,9 @@ Fixes:
 - [x] A. `generate` re-hashes generated files it did not write, so a config the user edited is recorded as "generated" and overwritten by the next `add`.
 - [x] B. `add` overwrites existing files (`copyTemplate`) and scripts (`addScripts`) without checking.
 - [ ] C. `create` does not validate `--pm` (and relies on downstream errors for `--kind` / `--framework`).
-- [ ] D. `runProcess` spawns `pnpm` / `bun` / `git` without a shell, which fails on Windows (`pnpm.cmd`).
-- [ ] F. Cancelling a prompt exits with code 0.
-- [ ] G. Generated `AGENTS.md` always says pre-commit runs lint, typecheck and format check, even when those scripts do not exist.
+- [x] D. `runProcess` spawns `pnpm` / `bun` / `git` without a shell, which fails on Windows (`pnpm.cmd`).
+- [x] F. Cancelling a prompt exits with code 0.
+- [x] G. Generated `AGENTS.md` always says pre-commit runs lint, typecheck and format check, even when those scripts do not exist.
 - `create-web help` running `create help` is intended (any non-subcommand argument is a project directory).
 
 Design:

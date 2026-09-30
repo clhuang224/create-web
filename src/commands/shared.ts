@@ -21,6 +21,9 @@ export function runProcess(
     const child = spawn(command, args, {
       cwd,
       stdio: quiet ? 'ignore' : 'inherit',
+      // On Windows, pnpm and bun are .cmd shims that only resolve through a
+      // shell. Arguments here are fixed words, never user input, so no quoting is needed.
+      shell: process.platform === 'win32',
     })
     child.on('close', (code) => resolve(code ?? 1))
     child.on('error', () => resolve(1))
