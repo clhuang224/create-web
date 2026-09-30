@@ -15,6 +15,7 @@ import {
   recordMember,
 } from '../core/workspace.ts'
 import { presetFeatures, presets } from '../presets.ts'
+import { clackPrompter } from './prompter.ts'
 import { promptFeatures } from './prompts.ts'
 import { exitIfCancelled, parseList, runProcess, showNotes } from './shared.ts'
 
@@ -92,7 +93,9 @@ export const addMemberCommand = defineCommand({
     )
     const features =
       (parseList(args.features) as FeatureId[] | undefined) ??
-      (interactive ? await promptFeatures(initial, candidates) : initial)
+      (interactive
+        ? await promptFeatures(clackPrompter, initial, candidates)
+        : initial)
 
     const { name: rootName = 'workspace' } = (
       await PackageJsonEditor.load(disk)
