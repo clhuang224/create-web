@@ -109,29 +109,29 @@ Derived from `bus`, `queener` and `milestone-checker`:
 5. `backend` kind.
 6. Deferred items below.
 
-## Review Follow-ups (2026-10-01)
+## Follow-ups
 
-From a full code review. Check items off as they land.
+Known issues and design changes. Check items off as they land.
 
 Fixes:
 
-- [x] A. `generate` re-hashes generated files it did not write, so a config the user edited is recorded as "generated" and overwritten by the next `add`.
-- [x] B. `add` overwrites existing files (`copyTemplate`) and scripts (`addScripts`) without checking.
-- [x] C. `create` does not validate `--pm` (and relies on downstream errors for `--kind` / `--framework`).
-- [x] D. `runProcess` spawns `pnpm` / `bun` / `git` without a shell, which fails on Windows (`pnpm.cmd`).
-- [x] F. Cancelling a prompt exits with code 0.
-- [x] G. Generated `AGENTS.md` always says pre-commit runs lint, typecheck and format check, even when those scripts do not exist.
+- [x] `generate` re-hashes generated files it did not write, so a config the user edited is recorded as "generated" and overwritten by the next `add`.
+- [x] `add` overwrites existing files (`copyTemplate`) and scripts (`addScripts`) without checking.
+- [x] `create` does not validate `--pm` (and relies on downstream errors for `--kind` / `--framework`).
+- [x] `runProcess` spawns `pnpm` / `bun` / `git` without a shell, which fails on Windows (`pnpm.cmd`).
+- [x] Cancelling a prompt exits with code 0.
+- [x] Generated `AGENTS.md` always says pre-commit runs lint, typecheck and format check, even when those scripts do not exist.
 - `create-web help` running `create help` is intended (any non-subcommand argument is a project directory).
 
 Design:
 
-- [x] 1. Split `create` into a pure option-resolution step and a prompt layer, and unit-test the resolution.
-- [x] 3. `remove` command, so e.g. Prettier can be swapped for oxfmt.
-- [x] 4. Generated GitHub Pages deploys only after CI passes.
-- [x] 5. create-web's own publish workflow (and the generated library publish workflow) runs the full checks first.
-- [x] 6. Evaluate release automation (semantic-release and alternatives) and a way to keep `src/versions.ts` current.
-- [x] 8. Format written files with the project's own formatter after install (was: always Prettier).
-- Recorded for later: 2 (sync order), 7 (manifest migrations); see Known Limitations.
+- [x] Split `create` into a pure option-resolution step and a prompt layer, and unit-test the resolution.
+- [x] `remove` command, so e.g. Prettier can be swapped for oxfmt.
+- [x] Generated GitHub Pages deploys only after CI passes.
+- [x] create-web's own publish workflow (and the generated library publish workflow) runs the full checks first.
+- [x] Evaluate release automation (semantic-release and alternatives) and a way to keep `src/versions.ts` current.
+- [x] Format written files with the project's own formatter after install (was: always Prettier).
+- The `sync` order and manifest migrations are deferred; see Known Limitations.
 
 ## Release Automation (evaluation, not decided)
 
