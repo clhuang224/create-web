@@ -129,8 +129,27 @@ Design:
 - [x] 3. `remove` command, so e.g. Prettier can be swapped for oxfmt.
 - [x] 4. Generated GitHub Pages deploys only after CI passes.
 - [x] 5. create-web's own publish workflow (and the generated library publish workflow) runs the full checks first.
-- [ ] 6. Evaluate release automation (semantic-release and alternatives) and a way to keep `src/versions.ts` current.
+- [x] 6. Evaluate release automation (semantic-release and alternatives) and a way to keep `src/versions.ts` current.
 - Recorded for later: 2 (sync order), 7 (manifest migrations), 8 (formatting with Prettier when oxfmt is chosen); see Known Limitations.
+
+## Release Automation (evaluation, not decided)
+
+Two separate problems:
+
+1. **Releasing create-web itself** (version, tag, changelog, publish). Today: bump `package.json` by hand, commit, push a `v*` tag; `publish.yml` runs CI and publishes.
+2. **Keeping `src/versions.ts` current** (the dependency versions written into generated projects). Today: manual.
+
+Options for (1):
+
+| Tool | How it works | Fit |
+| --- | --- | --- |
+| semantic-release | On every push to `main`, reads Conventional Commits since the last tag, picks the next version, tags, publishes and writes GitHub release notes. No version commit in the repo by default. | Fully automatic: every `feat`/`fix` merged to `main` ships. Conflicts with asking before each release, and with the rule that every push needs its own approval, since a push to `main` becomes a release. Large plugin setup (npm, GitHub, changelog, git). |
+| release-please | Keeps an open "release PR" that accumulates Conventional Commits, bumps `package.json` and `CHANGELOG.md`. Merging that PR creates the tag and GitHub release; the existing `publish.yml` then publishes. | Same commit-based versioning, but releasing stays an explicit, reviewable step (merging the PR). Small config, works with prereleases. |
+| Changesets | Contributors add changeset files describing each change; a bot PR bumps versions. | Built for multi-package monorepos and teams; extra files per change are overhead for a single personal package. |
+
+Recommendation for (1): **release-please**. It reuses the Conventional Commits already enforced, removes the manual version bump and changelog, and keeps a human decision before each release.
+
+Options for (2): Renovate with a regex custom manager can read the `'package': '^x.y.z'` entries in `src/versions.ts` and open update PRs (Dependabot cannot parse custom files). A lighter alternative is a `versions:outdated` script that compares `src/versions.ts` with the npm registry, run by hand before a release. Either way `pnpm run e2e` must pass before merging a bump, which CI already enforces.
 
 ## Known Limitations
 
