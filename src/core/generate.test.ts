@@ -419,3 +419,25 @@ describe('generate (create, library)', () => {
     ).rejects.toThrow(/do not use a framework/)
   })
 })
+
+describe('agent docs', () => {
+  it('describes only the checks the pre-commit hook actually runs', async () => {
+    const { fs } = await generate({
+      root,
+      mode: 'create',
+      options: { ...lynn, features: ['husky', 'agent-docs'] },
+    })
+    const agents = await fs.read('AGENTS.md')
+    expect(agents).toContain(
+      '`pre-commit`: typecheck; skipped when only Markdown',
+    )
+    expect(agents).not.toContain('pre-push')
+  })
+
+  it('lists every check when all scripts exist', async () => {
+    const { fs } = await generate({ root, mode: 'create', options: lynn })
+    expect(await fs.read('AGENTS.md')).toContain(
+      '`pre-commit`: lint, typecheck and format check;',
+    )
+  })
+})

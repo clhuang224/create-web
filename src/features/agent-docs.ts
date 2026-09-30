@@ -28,13 +28,33 @@ function commandLines(ctx: Context) {
     .map(([script, description]) => `- \`${ctx.run(script)}\`: ${description}`)
 }
 
+const PRE_COMMIT_CHECKS: Record<string, string> = {
+  lint: 'lint',
+  typecheck: 'typecheck',
+  'format:check': 'format check',
+}
+
+/** Mirrors the scripts husky's pre-commit hook runs (see features/husky.ts). */
+function preCommitChecks(ctx: Context) {
+  const checks = Object.entries(PRE_COMMIT_CHECKS)
+    .filter(([script]) => ctx.pkg.hasScript(script))
+    .map(([, label]) => label)
+  if (checks.length === 0)
+    return 'no checks yet; they are added with lint, typecheck or format scripts.'
+  const list =
+    checks.length === 1
+      ? checks[0]
+      : `${checks.slice(0, -1).join(', ')} and ${checks.at(-1)}`
+  return `${list}; skipped when only Markdown or \`docs/\` files are staged.`
+}
+
 function hookLines(ctx: Context) {
   if (!ctx.has('husky')) return []
   return [
     '## Git Hooks',
     '',
     '- `commit-msg`: Conventional Commits header check.',
-    '- `pre-commit`: lint, typecheck, and format check; skipped when only Markdown or `docs/` files are staged.',
+    `- \`pre-commit\`: ${preCommitChecks(ctx)}`,
     ...(ctx.pkg.hasScript('test') ? ['- `pre-push`: unit tests.'] : []),
   ]
 }
