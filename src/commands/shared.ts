@@ -4,7 +4,8 @@ import * as p from '@clack/prompts'
 export function exitIfCancelled<T>(value: T): Exclude<T, symbol> {
   if (p.isCancel(value)) {
     p.cancel('Cancelled.')
-    process.exit(0)
+    // 130 is the conventional exit code for a run interrupted with Ctrl+C.
+    process.exit(130)
   }
   // isCancel only narrows to the cancel symbol, so TypeScript cannot narrow the rest.
   return value as Exclude<T, symbol>
