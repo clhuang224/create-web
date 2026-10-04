@@ -1,3 +1,4 @@
+import { stat, readdir } from 'node:fs/promises'
 import { basename, resolve } from 'node:path'
 import type {
   FeatureId,
@@ -48,10 +49,32 @@ export type CreatePlan =
       members: MemberSpec[]
     }
 
+/** What is at the target path, as far as creating a project there goes. */
+export type DirState =
+  | 'missing'
+  | 'empty'
+  | 'not-empty'
+  | 'not-a-directory'
+  | 'parent-not-a-directory'
+
 export interface ResolveDeps {
   /** Omitted for non-interactive runs; every question then takes its default. */
   prompter?: Prompter
-  isEmptyDir(path: string): Promise<boolean>
+  inspectDir(path: string): Promise<DirState>
+}
+
+const errorCode = (error: unknown) =>
+  error instanceof Error && 'code' in error ? error.code : undefined
+
+export async function inspectDir(path: string): Promise<DirState> {
+  try {
+    if (!(await stat(path)).isDirectory()) return 'not-a-directory'
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') return 'missing'
+    if (errorCode(error) === 'ENOTDIR') return 'parent-not-a-directory'
+    throw error
+  }
+  return (await readdir(path)).length === 0 ? 'empty' : 'not-empty'
 }
 
 type MemberBase = Omit<MemberSpec, 'features'>
@@ -65,6 +88,32 @@ const SCOPED_PACKAGE_NAME = /^@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/
 
 export const isValidPackageName = (name: string) =>
   PACKAGE_NAME.test(name) || SCOPED_PACKAGE_NAME.test(name)
+
+/** Checks the directory's own name, so `.` is judged by the current directory. */
+const directoryNameError = (dir: string) => {
+  const name = basename(resolve(dir))
+  return PACKAGE_NAME.test(name) ? undefined : `Invalid directory name: ${name}`
+}
+
+const HOSTNAME_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+
+/**
+ * A custom GitHub Pages domain is a bare hostname such as `www.example.com`,
+ * without scheme, path or port. Returns the lowercased hostname, or undefined
+ * when the value is not one.
+ */
+export function normalizePagesDomain(value: string): string | undefined {
+  const domain = value.toLowerCase()
+  const labels = domain.split('.')
+  return domain.length <= 253 &&
+    labels.length >= 2 &&
+    labels.every((label) => HOSTNAME_LABEL.test(label))
+    ? domain
+    : undefined
+}
+
+const PAGES_DOMAIN_HINT =
+  'Use a bare hostname such as www.example.com (no scheme, path or port)'
 
 function oneOf<T extends string>(
   value: string | undefined,
@@ -122,6 +171,15 @@ export async function resolveCreatePlan(
     throw new UsageError('--framework does not apply to library projects')
   }
   const packageManagerFlag = oneOf(args.pm, PACKAGE_MANAGERS, '--pm')
+  const pagesDomainFlag =
+    args.pagesDomain === undefined
+      ? undefined
+      : normalizePagesDomain(args.pagesDomain)
+  if (args.pagesDomain !== undefined && !pagesDomainFlag) {
+    throw new UsageError(
+      `Invalid --pages-domain "${args.pagesDomain}". ${PAGES_DOMAIN_HINT}`,
+    )
+  }
 
   const placeholder = kind === 'library' ? 'my-lib' : 'my-app'
   const dir =
@@ -131,17 +189,25 @@ export async function resolveCreatePlan(
           placeholder,
           defaultValue: placeholder,
           validate: (value) =>
-            !value || PACKAGE_NAME.test(basename(value))
+            !value || !directoryNameError(value)
               ? undefined
               : 'Use lowercase letters, digits, ".", "-" or "_"',
         })
       : placeholder)
   const root = resolve(dir)
-  if (!PACKAGE_NAME.test(basename(root))) {
-    throw new UsageError(`Invalid directory name: ${basename(root)}`)
-  }
-  if (!(await deps.isEmptyDir(root))) {
+  const dirError = directoryNameError(dir)
+  if (dirError) throw new UsageError(dirError)
+  const dirState = await deps.inspectDir(root)
+  if (dirState === 'not-empty') {
     throw new UsageError(`${dir} already exists and is not empty.`)
+  }
+  if (dirState === 'not-a-directory') {
+    throw new UsageError(`${dir} exists and is not a directory.`)
+  }
+  if (dirState === 'parent-not-a-directory') {
+    throw new UsageError(
+      `Cannot create ${dir}: a parent path is not a directory.`,
+    )
   }
 
   // Libraries are often scoped (@scope/name), so their package name can differ from the directory.
@@ -214,14 +280,15 @@ export async function resolveCreatePlan(
       ? await promptFeatures(prompter, presetFor(defaults), candidates)
       : presetFor(defaults))
 
+  const usesPages = kind === 'frontend' && features.includes('github-pages')
+  if (pagesDomainFlag && !usesPages) {
+    throw new UsageError(
+      '--pages-domain only applies to frontend projects with github-pages',
+    )
+  }
   const pagesDomain =
-    args.pagesDomain ??
-    (prompter && features.includes('github-pages')
-      ? (await prompter.text(
-          'Custom domain for GitHub Pages (leave empty to use <user>.github.io/<repo>)',
-          { defaultValue: '' },
-        )) || undefined
-      : undefined)
+    pagesDomainFlag ??
+    (prompter && usesPages ? await askPagesDomain(prompter) : undefined)
 
   const options: ProjectOptions = {
     name,
@@ -241,6 +308,25 @@ export async function resolveCreatePlan(
     options: { ...options, features: split.root },
     members: split.members,
   }
+}
+
+async function askPagesDomain(prompter: Prompter) {
+  const answer = await prompter.text(
+    'Custom domain for GitHub Pages (leave empty to use <user>.github.io/<repo>)',
+    {
+      defaultValue: '',
+      validate: (value) =>
+        !value || normalizePagesDomain(value) ? undefined : PAGES_DOMAIN_HINT,
+    },
+  )
+  if (!answer) return undefined
+  const domain = normalizePagesDomain(answer)
+  if (!domain) {
+    throw new UsageError(
+      `Invalid custom domain "${answer}". ${PAGES_DOMAIN_HINT}`,
+    )
+  }
+  return domain
 }
 
 function parseFeatures(value: string | undefined) {

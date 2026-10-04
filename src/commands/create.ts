@@ -1,4 +1,3 @@
-import { readdir } from 'node:fs/promises'
 import { relative } from 'node:path'
 import * as p from '@clack/prompts'
 import { defineCommand } from 'citty'
@@ -8,6 +7,7 @@ import { generateWorkspace, type WorkspaceResult } from '../core/workspace.ts'
 import { presets } from '../presets.ts'
 import {
   type CreatePlan,
+  inspectDir,
   resolveCreatePlan,
   UsageError,
 } from './create-options.ts'
@@ -76,7 +76,7 @@ export const createCommand = defineCommand({
         { ...args, pagesDomain: args['pages-domain'] },
         {
           prompter: process.stdin.isTTY ? clackPrompter : undefined,
-          isEmptyDir,
+          inspectDir,
         },
       )
       projects =
@@ -154,12 +154,4 @@ export const createCommand = defineCommand({
 function fail(message: string) {
   p.cancel(message)
   process.exitCode = 1
-}
-
-async function isEmptyDir(path: string) {
-  try {
-    return (await readdir(path)).length === 0
-  } catch {
-    return true
-  }
 }

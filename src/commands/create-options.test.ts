@@ -1,13 +1,21 @@
-import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { basename, join, resolve } from 'node:path'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { memberCandidates } from '../core/workspace.ts'
+import { features as registry } from '../features/index.ts'
 import { presetFeatures, presets } from '../presets.ts'
 import {
   type CreateArgs,
   type CreatePlan,
+  type DirState,
+  inspectDir,
+  normalizePagesDomain,
   resolveCreatePlan,
   UsageError,
 } from './create-options.ts'
 import type { Choice, Prompter } from './prompter.ts'
+import { promptFeatures } from './prompts.ts'
 
 type Answer = string | string[]
 
@@ -41,18 +49,26 @@ function scriptedPrompter(answers: Record<string, Answer> = {}) {
       asked.push({ message, choices })
       return (answers[message] as T[] | undefined) ?? initialValues
     },
-    async text(message, { defaultValue }) {
+    async text(message, { defaultValue, validate }) {
       asked.push({ message })
-      return (answers[message] as string | undefined) ?? defaultValue
+      const answer = (answers[message] as string | undefined) ?? defaultValue
+      // Like clack, keep asking until the answer passes validation.
+      const error = validate?.(answer)
+      if (error)
+        throw new Error(`"${answer}" rejected for ${message}: ${error}`)
+      return answer
     },
   }
   return { prompter, asked }
 }
 
-const emptyDir = async () => true
+const emptyDir = async (): Promise<DirState> => 'missing'
 
 const plan = (args: CreateArgs, prompter?: Prompter) =>
-  resolveCreatePlan(args, { prompter, isEmptyDir: emptyDir })
+  resolveCreatePlan(args, { prompter, inspectDir: emptyDir })
+
+const PAGES_QUESTION =
+  'Custom domain for GitHub Pages (leave empty to use <user>.github.io/<repo>)'
 
 const projectOptions = (result: CreatePlan) => {
   if (result.type !== 'project') throw new Error('expected a single project')
@@ -119,8 +135,67 @@ describe('resolveCreatePlan without prompts', () => {
 
   it('refuses a non-empty directory', async () => {
     await expect(
-      resolveCreatePlan({ dir: 'demo' }, { isEmptyDir: async () => false }),
+      resolveCreatePlan(
+        { dir: 'demo' },
+        { inspectDir: async () => 'not-empty' },
+      ),
     ).rejects.toThrow('demo already exists and is not empty.')
+  })
+
+  it('refuses a target that is not a directory', async () => {
+    await expect(
+      resolveCreatePlan(
+        { dir: 'afile' },
+        { inspectDir: async () => 'not-a-directory' },
+      ),
+    ).rejects.toThrow(new UsageError('afile exists and is not a directory.'))
+    await expect(
+      resolveCreatePlan(
+        { dir: 'afile/app' },
+        { inspectDir: async () => 'parent-not-a-directory' },
+      ),
+    ).rejects.toBeInstanceOf(UsageError)
+  })
+
+  it('normalizes --pages-domain to a bare hostname', async () => {
+    const options = projectOptions(
+      await plan({ dir: 'demo', pagesDomain: 'Demo.Example.com' }),
+    )
+    expect(options.pagesDomain).toBe('demo.example.com')
+  })
+
+  it('rejects a --pages-domain that is not a bare hostname', async () => {
+    for (const pagesDomain of [
+      'https://Example.com/app',
+      'example.com/app',
+      'example.com:8080',
+      'exa mple.com',
+      'localhost',
+      '',
+    ]) {
+      await expect(plan({ dir: 'demo', pagesDomain })).rejects.toThrow(
+        `Invalid --pages-domain "${pagesDomain}"`,
+      )
+    }
+  })
+
+  it('rejects --pages-domain without a GitHub Pages frontend', async () => {
+    const message =
+      '--pages-domain only applies to frontend projects with github-pages'
+    await expect(
+      plan({ dir: 'lib', kind: 'library', pagesDomain: 'example.com' }),
+    ).rejects.toThrow(message)
+    await expect(
+      plan({
+        dir: 'repo',
+        kind: 'monorepo',
+        members: 'web:vue',
+        pagesDomain: 'example.com',
+      }),
+    ).rejects.toThrow(message)
+    await expect(
+      plan({ dir: 'demo', features: 'vitest', pagesDomain: 'example.com' }),
+    ).rejects.toThrow(message)
   })
 
   it('uses React equivalents of the preset for --framework react', async () => {
@@ -228,10 +303,42 @@ describe('resolveCreatePlan with prompts', () => {
     )
   })
 
+  it('accepts "." as the project directory when its name is valid', async () => {
+    const cwd = process.cwd()
+    const dir = await mkdtemp(join(tmpdir(), 'create-web-'))
+    const app = join(dir, 'my-app')
+    await mkdir(app)
+    try {
+      process.chdir(app)
+      const { prompter } = scriptedPrompter({ 'Project directory': '.' })
+      const result = await plan({}, prompter)
+      expect(basename(result.root)).toBe('my-app')
+    } finally {
+      process.chdir(cwd)
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('validates the Pages domain answer like the flag', async () => {
+    const { prompter } = scriptedPrompter({
+      [PAGES_QUESTION]: 'https://example.com/app',
+    })
+    await expect(
+      plan({ dir: 'demo', framework: 'vue' }, prompter),
+    ).rejects.toThrow(
+      `"https://example.com/app" rejected for ${PAGES_QUESTION}`,
+    )
+
+    const upper = scriptedPrompter({ [PAGES_QUESTION]: 'WWW.Example.com' })
+    const options = projectOptions(
+      await plan({ dir: 'demo', framework: 'vue' }, upper.prompter),
+    )
+    expect(options.pagesDomain).toBe('www.example.com')
+  })
+
   it('asks for the Pages domain only when GitHub Pages is selected', async () => {
     const { prompter, asked } = scriptedPrompter({
-      'Custom domain for GitHub Pages (leave empty to use <user>.github.io/<repo>)':
-        'demo.example.com',
+      [PAGES_QUESTION]: 'demo.example.com',
     })
     const options = projectOptions(
       await plan({ dir: 'demo', framework: 'vue' }, prompter),
@@ -244,5 +351,98 @@ describe('resolveCreatePlan with prompts', () => {
       'Custom domain for GitHub Pages (leave empty to use <user>.github.io/<repo>)',
     )
     expect(asked.length).toBeGreaterThan(0)
+  })
+})
+
+describe('inspectDir', () => {
+  let dir = ''
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'create-web-'))
+    await mkdir(join(dir, 'empty'))
+    await mkdir(join(dir, 'full'))
+    await writeFile(join(dir, 'full', 'x'), '')
+    await writeFile(join(dir, 'afile'), '')
+  })
+  afterAll(() => rm(dir, { recursive: true, force: true }))
+
+  it('tells apart missing, empty, non-empty and non-directory paths', async () => {
+    expect(await inspectDir(join(dir, 'nope'))).toBe('missing')
+    expect(await inspectDir(join(dir, 'empty'))).toBe('empty')
+    expect(await inspectDir(join(dir, 'full'))).toBe('not-empty')
+    expect(await inspectDir(join(dir, 'afile'))).toBe('not-a-directory')
+    expect(await inspectDir(join(dir, 'afile', 'app'))).toBe(
+      'parent-not-a-directory',
+    )
+  })
+})
+
+describe('normalizePagesDomain', () => {
+  it('accepts bare hostnames and lowercases them', () => {
+    expect(normalizePagesDomain('Example.COM')).toBe('example.com')
+    expect(normalizePagesDomain('www.my-site.example.co')).toBe(
+      'www.my-site.example.co',
+    )
+  })
+
+  it('rejects anything else', () => {
+    for (const value of [
+      'https://example.com',
+      'example.com/',
+      'example.com:443',
+      ' example.com',
+      'example',
+      'example..com',
+      '-bad.example.com',
+      'example.com.',
+      '*.example.com',
+    ]) {
+      expect(normalizePagesDomain(value)).toBeUndefined()
+    }
+  })
+})
+
+describe('promptFeatures', () => {
+  const byId = (...ids: string[]) =>
+    registry.filter((feature) => ids.includes(feature.id))
+  const messages = (asked: { message: string }[]) =>
+    asked.map((entry) => entry.message)
+  const offered = (
+    asked: { message: string; choices?: Choice<string>[] }[],
+    message: string,
+  ) =>
+    asked
+      .find((entry) => entry.message === message)
+      ?.choices?.map((choice) => choice.value)
+
+  it('skips the formatter question for monorepo members', async () => {
+    const candidates = memberCandidates('frontend', 'vue')
+    const { prompter, asked } = scriptedPrompter({ Linter: 'eslint' })
+    const features = await promptFeatures(prompter, ['eslint'], candidates)
+    expect(messages(asked)).toEqual(['Linter', 'Features'])
+    expect(features).toContain('eslint')
+    expect(features).not.toContain('prettier')
+  })
+
+  it('skips the linter question when no linter is a candidate', async () => {
+    const { prompter, asked } = scriptedPrompter()
+    const features = await promptFeatures(
+      prompter,
+      ['prettier', 'vitest'],
+      byId('prettier', 'oxfmt', 'vitest'),
+    )
+    expect(messages(asked)).toEqual(['Formatter', 'Features'])
+    expect(features).toEqual(['prettier', 'vitest'])
+  })
+
+  it('offers only choices whose features are all candidates', async () => {
+    const { prompter, asked } = scriptedPrompter()
+    const features = await promptFeatures(
+      prompter,
+      ['oxlint', 'eslint', 'prettier'],
+      byId('eslint', 'prettier'),
+    )
+    expect(offered(asked, 'Linter')).toEqual(['eslint', 'none'])
+    expect(offered(asked, 'Formatter')).toEqual(['prettier', 'none'])
+    expect(features).toEqual(['eslint', 'prettier'])
   })
 })
