@@ -6,10 +6,22 @@ import { PackageJsonEditor } from '../core/package-json.ts'
 import { ResolveError } from '../core/resolver.ts'
 import type { FeatureId } from '../core/types.ts'
 import { VirtualFs } from '../core/vfs.ts'
-import { memberCandidates } from '../core/workspace.ts'
+import {
+  memberCandidates,
+  memberWorkspace,
+  syncMembers,
+} from '../core/workspace.ts'
+import { features as registry } from '../features/index.ts'
 import { compatibleFeatures } from '../presets.ts'
+import { clackPrompter } from './prompter.ts'
 import { formatterLocation, formatTouchedProjects } from './project-format.ts'
-import { exitIfCancelled, showNotes, installDependencies } from './shared.ts'
+import {
+  changedFileList,
+  exitIfCancelled,
+  projectNotes,
+  showNotes,
+  installDependencies,
+} from './shared.ts'
 
 export const addCommand = defineCommand({
   meta: {
@@ -45,34 +57,49 @@ export const addCommand = defineCommand({
       )
     }
     const { name = 'app' } = (await PackageJsonEditor.load(disk)).data
+    const workspace = await memberWorkspace(root, manifest)
 
     let requested = args._.map(String) as FeatureId[]
     if (requested.length === 0) {
       // Inside a monorepo member, root-owned features are added at the root instead.
       const candidates =
-        manifest.workspace &&
+        workspace &&
         (manifest.kind === 'frontend' || manifest.kind === 'library')
           ? memberCandidates(manifest.kind, manifest.framework)
           : compatibleFeatures(manifest.kind, manifest.framework)
+      const present = new Set([
+        ...manifest.features,
+        ...(workspace?.rootFeatures ?? []),
+      ])
+      // Conflicts are checked both ways, since only one side may declare them.
+      const excluded = new Set(
+        registry.flatMap((feature) =>
+          present.has(feature.id) ? (feature.conflicts ?? []) : [],
+        ),
+      )
       const available = candidates.filter(
-        (feature) => !manifest.features.includes(feature.id),
+        (feature) =>
+          !present.has(feature.id) &&
+          !excluded.has(feature.id) &&
+          !feature.conflicts?.some((id) => present.has(id)),
       )
       if (available.length === 0)
         return done('Every available feature is already applied.')
       if (!process.stdin.isTTY) return fail('Pass the feature ids to add.')
-      requested = exitIfCancelled(
-        await p.multiselect<FeatureId>({
-          message: 'Features to add',
-          options: available.map((feature) => ({
-            value: feature.id,
-            label: feature.label,
-            hint: feature.hint,
-          })),
-        }),
+      requested = await clackPrompter.multiselect<FeatureId>(
+        'Features to add',
+        available.map((feature) => ({
+          value: feature.id,
+          label: feature.label,
+          hint: feature.hint,
+        })),
+        [],
       )
+      if (requested.length === 0) return done('Nothing added.')
     }
 
     let result
+    let members
     try {
       result = await generate({
         root,
@@ -86,8 +113,14 @@ export const addCommand = defineCommand({
           pagesDomain: manifest.pagesDomain,
         },
         existing: manifest.features,
-        workspace: manifest.workspace,
+        workspace,
       })
+      // Members derive files from the root's features (e.g. ESLint's
+      // skipFormatting), so they follow the change.
+      members =
+        manifest.kind === 'monorepo' && result.applied.length > 0
+          ? await syncMembers(root, manifest.members ?? [], result.features)
+          : []
     } catch (error) {
       if (error instanceof ResolveError) return fail(error.message)
       throw error
@@ -95,17 +128,15 @@ export const addCommand = defineCommand({
     if (result.applied.length === 0)
       return done('Nothing to add; those features are already applied.')
 
-    p.note(
-      result.fs.changedPaths().join('\n'),
-      `Adding ${result.applied.join(', ')}`,
-    )
+    const projects = [{ path: '', result }, ...members]
+    p.note(changedFileList(projects), `Adding ${result.applied.join(', ')}`)
     if (!args.yes && process.stdin.isTTY) {
       const confirmed = exitIfCancelled(
         await p.confirm({ message: 'Write these changes?' }),
       )
       if (!confirmed) return done('No changes written.')
     }
-    await result.fs.commit()
+    for (const project of projects) await project.result.fs.commit()
 
     if (args.install) {
       p.log.step(`Running ${manifest.packageManager} install`)
@@ -117,10 +148,14 @@ export const addCommand = defineCommand({
         const location = await formatterLocation(root, manifest)
         await formatTouchedProjects(location.root, [
           { dir: location.dir, fs: result.fs },
+          ...members.map(({ path, result: member }) => ({
+            dir: path,
+            fs: member.fs,
+          })),
         ])
       }
     }
-    showNotes(result.notes)
+    showNotes(projectNotes(projects))
     p.outro('Done.')
   },
 })

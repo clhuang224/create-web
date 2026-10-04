@@ -16,10 +16,12 @@ export interface GenerateInput {
   /** Features already applied to the project (add mode). */
   existing?: FeatureId[]
   /**
-   * Set for projects inside a monorepo: features the workspace root provides
-   * (e.g. the formatter). They count for `ctx.has` but are never applied here.
+   * Set for projects inside a monorepo: the features the workspace root has
+   * now (e.g. the formatter). They count for `ctx.has` but are never applied
+   * here, and they are not stored in the member's manifest, since the root can
+   * change them later (see `memberWorkspace`).
    */
-  workspace?: { inherited: FeatureId[] }
+  workspace?: { rootFeatures: FeatureId[] }
   /** Monorepo root: member paths to record in the manifest. */
   members?: string[]
   /** Remove mode: features to remove from `existing`. */
@@ -28,6 +30,8 @@ export interface GenerateInput {
 
 export interface GenerateResult {
   fs: VirtualFs
+  /** Every feature the project has after this run. */
+  features: FeatureId[]
   applied: FeatureId[]
   removed: FeatureId[]
   notes: string[]
@@ -61,7 +65,7 @@ export async function generate({
   const notes: string[] = []
   const previous = await readManifest(fs)
   const previousHashes = previous?.generated ?? {}
-  const inherited = new Set(workspace?.inherited ?? [])
+  const inherited = new Set(workspace?.rootFeatures ?? [])
   const generatedPaths = new Set<string>(Object.keys(previousHashes))
   const finalOptions: ProjectOptions = { ...options, features: [...present] }
   const ctx: Context = {
@@ -152,13 +156,14 @@ export async function generate({
   writeManifest(fs, finalOptions, {
     generated: hashes,
     members: members ?? previous?.members,
-    workspace,
+    workspace: workspace ? {} : undefined,
     ownedDependencies: ctx.pkg.ownedDependencies(),
   })
   await formatChangedFiles(fs)
 
   return {
     fs,
+    features: finalOptions.features,
     applied: toApply.map((feature) => feature.id),
     removed: toRemove.map((feature) => feature.id),
     notes,

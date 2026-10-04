@@ -6,10 +6,17 @@ import { PackageJsonEditor } from '../core/package-json.ts'
 import { ResolveError } from '../core/resolver.ts'
 import type { FeatureId } from '../core/types.ts'
 import { VirtualFs } from '../core/vfs.ts'
+import { memberWorkspace, syncMembers } from '../core/workspace.ts'
 import { features as registry } from '../features/index.ts'
 import { clackPrompter } from './prompter.ts'
 import { formatterLocation, formatTouchedProjects } from './project-format.ts'
-import { exitIfCancelled, showNotes, installDependencies } from './shared.ts'
+import {
+  changedFileList,
+  exitIfCancelled,
+  projectNotes,
+  showNotes,
+  installDependencies,
+} from './shared.ts'
 
 export const removeCommand = defineCommand({
   meta: {
@@ -66,6 +73,7 @@ export const removeCommand = defineCommand({
     }
 
     let result
+    let members
     try {
       result = await generate({
         root,
@@ -79,29 +87,29 @@ export const removeCommand = defineCommand({
           pagesDomain: manifest.pagesDomain,
         },
         existing: manifest.features,
-        workspace: manifest.workspace,
+        workspace: await memberWorkspace(root, manifest),
         remove: requested,
       })
+      // Members derive files from the root's features (e.g. ESLint's
+      // skipFormatting), so they follow the change.
+      members =
+        manifest.kind === 'monorepo'
+          ? await syncMembers(root, manifest.members ?? [], result.features)
+          : []
     } catch (error) {
       if (error instanceof ResolveError) return fail(error.message)
       throw error
     }
 
-    const deleted = new Set(result.fs.deletedPaths())
-    p.note(
-      result.fs
-        .changedPaths()
-        .map((path) => (deleted.has(path) ? `${path} (delete)` : path))
-        .join('\n'),
-      `Removing ${result.removed.join(', ')}`,
-    )
+    const projects = [{ path: '', result }, ...members]
+    p.note(changedFileList(projects), `Removing ${result.removed.join(', ')}`)
     if (!args.yes && process.stdin.isTTY) {
       const confirmed = exitIfCancelled(
         await p.confirm({ message: 'Apply these changes?' }),
       )
       if (!confirmed) return done('No changes written.')
     }
-    await result.fs.commit()
+    for (const project of projects) await project.result.fs.commit()
 
     if (args.install) {
       p.log.step(`Running ${manifest.packageManager} install`)
@@ -113,10 +121,14 @@ export const removeCommand = defineCommand({
         const location = await formatterLocation(root, manifest)
         await formatTouchedProjects(location.root, [
           { dir: location.dir, fs: result.fs },
+          ...members.map(({ path, result: member }) => ({
+            dir: path,
+            fs: member.fs,
+          })),
         ])
       }
     }
-    showNotes(result.notes)
+    showNotes(projectNotes(projects))
     p.outro('Done.')
   },
 })

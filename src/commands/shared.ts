@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import * as p from '@clack/prompts'
 import type { PackageManager } from '../core/types.ts'
+import type { VirtualFs } from '../core/vfs.ts'
 
 export function exitIfCancelled<T>(value: T): Exclude<T, symbol> {
   if (p.isCancel(value)) {
@@ -57,4 +58,30 @@ export function installDependencies(
       ? ['install', '--no-frozen-lockfile']
       : ['install']
   return runProcess(packageManager, args, cwd)
+}
+
+/** A project this run changed, relative to the root the command ran in ('' for itself). */
+export interface ChangedProject {
+  path: string
+  result: { fs: VirtualFs; notes: string[] }
+}
+
+/** Changed files of every project, prefixed with the project path, for a preview. */
+export function changedFileList(projects: ChangedProject[]) {
+  return projects
+    .flatMap(({ path, result }) => {
+      const deleted = new Set(result.fs.deletedPaths())
+      return result.fs.changedPaths().map((file) => {
+        const shown = path ? `${path}/${file}` : file
+        return deleted.has(file) ? `${shown} (delete)` : shown
+      })
+    })
+    .join('\n')
+}
+
+/** Notes of every project, prefixed with the project path. */
+export function projectNotes(projects: ChangedProject[]) {
+  return projects.flatMap(({ path, result }) =>
+    result.notes.map((note) => (path ? `${path}: ${note}` : note)),
+  )
 }

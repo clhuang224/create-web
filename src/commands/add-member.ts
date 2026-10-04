@@ -1,4 +1,3 @@
-import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import * as p from '@clack/prompts'
 import { defineCommand } from 'citty'
@@ -8,6 +7,7 @@ import { ResolveError } from '../core/resolver.ts'
 import type { FeatureId, Framework } from '../core/types.ts'
 import { VirtualFs } from '../core/vfs.ts'
 import {
+  assertNewMember,
   generateMember,
   type MemberSpec,
   memberCandidates,
@@ -15,6 +15,7 @@ import {
   recordMember,
 } from '../core/workspace.ts'
 import { presetFeatures, presets } from '../presets.ts'
+import { inspectDir } from './create-options.ts'
 import { clackPrompter } from './prompter.ts'
 import { formatTouchedProjects } from './project-format.ts'
 import { promptFeatures } from './prompts.ts'
@@ -66,6 +67,15 @@ export const addMemberCommand = defineCommand({
     if (!MEMBER_NAME.test(args.name)) {
       return fail(`Invalid project name: ${args.name}`)
     }
+    const { name: rootName = 'workspace' } = (
+      await PackageJsonEditor.load(disk)
+    ).data
+    try {
+      await assertNewMember(root, manifest, rootName, args.name)
+    } catch (error) {
+      if (error instanceof ResolveError) return fail(error.message)
+      throw error
+    }
     const interactive = !args.yes && process.stdin.isTTY
 
     const type = (args.type ??
@@ -89,9 +99,8 @@ export const addMemberCommand = defineCommand({
       type === 'library' ? undefined : type
 
     const target = memberPath({ name: args.name, kind })
-    if (!(await isEmptyDir(join(root, target)))) {
-      return fail(`${target} already exists and is not empty.`)
-    }
+    const targetError = await targetDirError(join(root, target), target)
+    if (targetError) return fail(targetError)
 
     const candidates = memberCandidates(kind, framework)
     const initial = presetFeatures(presets.lynn, kind, framework).filter((id) =>
@@ -103,9 +112,6 @@ export const addMemberCommand = defineCommand({
         ? await promptFeatures(clackPrompter, initial, candidates)
         : initial)
 
-    const { name: rootName = 'workspace' } = (
-      await PackageJsonEditor.load(disk)
-    ).data
     const member: MemberSpec = { name: args.name, kind, framework, features }
     let result
     try {
@@ -152,10 +158,23 @@ function fail(message: string) {
   process.exitCode = 1
 }
 
-async function isEmptyDir(path: string) {
+/** Why the member cannot be created at `path`, or undefined if it can. */
+async function targetDirError(path: string, target: string) {
+  let state
   try {
-    return (await readdir(path)).length === 0
-  } catch {
-    return true
+    state = await inspectDir(path)
+  } catch (error) {
+    return `Cannot use ${target}: ${error instanceof Error ? error.message : String(error)}`
+  }
+  switch (state) {
+    case 'missing':
+    case 'empty':
+      return undefined
+    case 'not-empty':
+      return `${target} already exists and is not empty.`
+    case 'not-a-directory':
+      return `${target} exists and is not a directory.`
+    case 'parent-not-a-directory':
+      return `Cannot create ${target}: a parent path is not a directory.`
   }
 }

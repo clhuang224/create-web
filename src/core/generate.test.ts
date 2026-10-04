@@ -456,6 +456,28 @@ describe('oxlint and oxfmt', () => {
     expect(pkg.devDependencies).toHaveProperty('eslint-plugin-oxlint')
   })
 
+  it('treats a config checked out with CRLF line endings as unedited', async () => {
+    const base: ProjectOptions = { ...lynn, features: ['eslint', 'prettier'] }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+    // What Git writes on Windows with core.autocrlf=true.
+    const configPath = join(root, 'eslint.config.js')
+    await writeFile(
+      configPath,
+      (await readFile(configPath, 'utf8')).replace(/\n/g, '\r\n'),
+    )
+
+    const { fs, notes } = await generate({
+      root,
+      mode: 'add',
+      options: { ...base, features: ['oxlint'] },
+      existing: base.features,
+    })
+    await fs.commit()
+
+    expect(notes).toEqual([])
+    expect(await readFile(configPath, 'utf8')).toContain('pluginOxlint')
+  })
+
   it('leaves an edited ESLint config alone and reports what to add', async () => {
     const base: ProjectOptions = { ...lynn, features: ['eslint'] }
     await (await generate({ root, mode: 'create', options: base })).fs.commit()

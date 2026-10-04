@@ -1,16 +1,21 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { presets } from '../presets.ts'
 import { generate } from './generate.ts'
 import type { ProjectOptions } from './types.ts'
+import { readManifest } from './manifest.ts'
+import { VirtualFs } from './vfs.ts'
 import {
+  assertNewMember,
   generateMember,
   generateWorkspace,
   memberPackageName,
+  memberWorkspace,
   recordMember,
   splitWorkspaceFeatures,
+  syncMembers,
   workspacePresetFeatures,
 } from './workspace.ts'
 
@@ -112,9 +117,8 @@ describe('generateWorkspace', () => {
     expect(
       await readFile(join(root, 'apps/web/eslint.config.js'), 'utf8'),
     ).toContain('skipFormatting')
-    expect((await readJson('apps/web/.create-web.json')).workspace).toEqual({
-      inherited: ['prettier', 'husky', 'github-actions', 'agent-docs'],
-    })
+    // Only a marker: the root's features are read from the root at run time.
+    expect((await readJson('apps/web/.create-web.json')).workspace).toEqual({})
     expect((await readJson('packages/shared/package.json')).name).toBe(
       '@demo/shared',
     )
@@ -139,7 +143,7 @@ describe('generateWorkspace', () => {
           packageManager: 'pnpm',
           features: ['husky'],
         },
-        workspace: { inherited: [] },
+        workspace: { rootFeatures: [] },
       }),
     ).rejects.toThrow(/set up at the workspace root/)
   })
@@ -193,6 +197,195 @@ describe('generateWorkspace', () => {
       'apps/web',
       'packages/shared',
     ])
+  })
+})
+
+const readText = (path: string) => readFile(join(root, path), 'utf8')
+
+/** Changes root features the way `add` / `remove` at the root does, member sync included. */
+async function changeRootFeatures(change: {
+  add?: ProjectOptions['features']
+  remove?: ProjectOptions['features']
+}) {
+  const manifest = await readManifest(new VirtualFs(root))
+  if (!manifest) throw new Error('expected a root manifest')
+  const result = await generate({
+    root,
+    mode: change.remove ? 'remove' : 'add',
+    options: rootOptions(change.add ?? []),
+    existing: manifest.features,
+    remove: change.remove,
+  })
+  const members = await syncMembers(
+    root,
+    manifest.members ?? [],
+    result.features,
+  )
+  await result.fs.commit()
+  for (const { result: member } of members) await member.fs.commit()
+  return members
+}
+
+describe('syncMembers', () => {
+  it('updates members when the root formatter changes', async () => {
+    await createWorkspace()
+    expect(await readText('apps/web/eslint.config.js')).toContain(
+      'skipFormatting',
+    )
+
+    const removed = await changeRootFeatures({ remove: ['prettier'] })
+    expect(removed.map((project) => project.path)).toEqual([
+      'apps/web',
+      'packages/shared',
+    ])
+    expect(removed[0]?.result.fs.changedPaths()).toContain('eslint.config.js')
+    expect(await readText('apps/web/eslint.config.js')).not.toContain(
+      'skipFormatting',
+    )
+    expect(
+      (await readJson('apps/web/package.json')).devDependencies,
+    ).not.toHaveProperty('eslint-config-prettier')
+    expect(await readText('packages/shared/eslint.config.js')).not.toContain(
+      'skipFormatting',
+    )
+
+    await changeRootFeatures({ add: ['oxfmt'] })
+    expect(await readText('apps/web/eslint.config.js')).toContain(
+      'skipFormatting',
+    )
+    expect((await readJson('apps/web/.create-web.json')).workspace).toEqual({})
+  })
+
+  it('leaves members out of the preview when nothing in them changes', async () => {
+    await createWorkspace()
+    const projects = await syncMembers(
+      root,
+      ['apps/web', 'packages/shared'],
+      ['prettier', 'husky', 'github-actions', 'agent-docs'],
+    )
+    expect(projects.map(({ result }) => result.fs.changedPaths())).toEqual([
+      [],
+      [],
+    ])
+  })
+
+  it('keeps an edited member config and says what to change', async () => {
+    await createWorkspace()
+    const config = join(root, 'apps/web/eslint.config.js')
+    await writeFile(config, `// mine\n${await readFile(config, 'utf8')}`)
+
+    const members = await changeRootFeatures({ remove: ['prettier'] })
+    expect(await readText('apps/web/eslint.config.js')).toContain(
+      'skipFormatting',
+    )
+    expect(members[0]?.result.notes.join('\n')).toMatch(
+      /eslint\.config\.js was edited.*remove eslint-config-prettier/,
+    )
+  })
+
+  it('reports members without a manifest instead of failing', async () => {
+    await createWorkspace()
+    await rm(join(root, 'packages/shared/.create-web.json'))
+    const projects = await syncMembers(
+      root,
+      ['apps/web', 'packages/shared'],
+      [],
+    )
+    expect(projects[1]?.result.notes[0]).toMatch(/no \.create-web\.json/)
+  })
+})
+
+describe('memberWorkspace', () => {
+  it("reads the root's current features, not a stored copy", async () => {
+    await createWorkspace()
+    await changeRootFeatures({ remove: ['prettier'] })
+    // A manifest from an older version still lists the features the root had then.
+    const memberRoot = join(root, 'apps/web')
+    const legacy = {
+      ...(await readJson('apps/web/.create-web.json')),
+      workspace: { inherited: ['prettier', 'husky'] },
+    }
+    await writeFile(
+      join(memberRoot, '.create-web.json'),
+      JSON.stringify(legacy),
+    )
+
+    expect(await memberWorkspace(memberRoot, legacy)).toEqual({
+      rootFeatures: ['husky', 'github-actions', 'agent-docs'],
+    })
+    // Adding a member feature rewrites the manifest with only the marker.
+    const { fs } = await generate({
+      root: memberRoot,
+      mode: 'add',
+      options: {
+        name: '@demo/web',
+        kind: 'frontend',
+        framework: 'vue',
+        packageManager: 'pnpm',
+        features: ['oxlint'],
+      },
+      existing: legacy.features,
+      workspace: await memberWorkspace(memberRoot, legacy),
+    })
+    expect(
+      JSON.parse((await fs.read('.create-web.json')) ?? '{}').workspace,
+    ).toEqual({})
+    expect(await fs.read('eslint.config.js')).not.toContain('skipFormatting')
+  })
+
+  it('is undefined for standalone projects', async () => {
+    expect(
+      await memberWorkspace(root, {
+        version: '0.0.0',
+        kind: 'frontend',
+        packageManager: 'pnpm',
+        features: [],
+      }),
+    ).toBeUndefined()
+  })
+})
+
+describe('member names', () => {
+  it('rejects names the root ignores', async () => {
+    for (const name of ['dist', 'coverage', 'node_modules', 'notes.local']) {
+      await expect(
+        generateWorkspace({
+          root,
+          options: rootOptions([]),
+          members: [{ name, kind: 'library', features: [] }],
+        }),
+      ).rejects.toThrow(/cannot be a project name/)
+    }
+  })
+
+  it('rejects names and package names already in use', async () => {
+    await createWorkspace()
+    const manifest = await readManifest(new VirtualFs(root))
+    if (!manifest) throw new Error('expected a root manifest')
+    await expect(
+      assertNewMember(root, manifest, 'demo', 'web'),
+    ).rejects.toThrow('apps/web already uses the name "web".')
+    // A project the manifest does not know about still clashes on its package name.
+    await mkdir(join(root, 'apps/ui'), { recursive: true })
+    await writeFile(
+      join(root, 'apps/ui/package.json'),
+      JSON.stringify({ name: '@demo/ui' }),
+    )
+    await expect(assertNewMember(root, manifest, 'demo', 'ui')).rejects.toThrow(
+      'apps/ui is already named @demo/ui.',
+    )
+    // So does a renamed member.
+    const sharedPkg = await readJson('packages/shared/package.json')
+    await writeFile(
+      join(root, 'packages/shared/package.json'),
+      JSON.stringify({ ...sharedPkg, name: '@demo/core' }),
+    )
+    await expect(
+      assertNewMember(root, manifest, 'demo', 'core'),
+    ).rejects.toThrow('packages/shared is already named @demo/core.')
+    await expect(
+      assertNewMember(root, manifest, 'demo', 'admin'),
+    ).resolves.toBeUndefined()
   })
 })
 

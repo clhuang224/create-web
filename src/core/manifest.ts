@@ -18,8 +18,12 @@ export interface Manifest extends Omit<ProjectOptions, 'name'> {
   ownedDependencies?: OwnedDependencies
   /** Monorepo root: member project paths, relative to the root. */
   members?: string[]
-  /** Workspace member: features provided by the monorepo root. */
-  workspace?: { inherited: FeatureId[] }
+  /**
+   * Set (to `{}`) on monorepo members. The root's features are read from the
+   * root manifest at run time; `inherited` is a frozen copy that older
+   * versions stored here and is ignored.
+   */
+  workspace?: { inherited?: FeatureId[] }
 }
 
 export type ManifestState = Pick<
@@ -34,9 +38,7 @@ export type ManifestState = Pick<
  */
 export function hashContent(content: string) {
   return createHash('sha256')
-    .update(content.replace(/
-/g, '
-'))
+    .update(content.replace(/\r\n/g, '\n'))
     .digest('hex')
     .slice(0, 16)
 }

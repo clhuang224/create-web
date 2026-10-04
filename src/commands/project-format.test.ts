@@ -28,12 +28,14 @@ const manifest = (partial: Partial<Manifest>): Manifest => ({
 })
 
 describe('formatterOf', () => {
-  it('uses the formatter the project or its workspace root has', () => {
+  it('uses the formatter the project has', () => {
     expect(formatterOf(manifest({ features: ['oxfmt'] }))).toBe('oxfmt')
     expect(formatterOf(manifest({ features: ['prettier'] }))).toBe('prettier')
+    // A member's stored copy of the root's features can be stale; the root's
+    // own manifest decides.
     expect(
       formatterOf(manifest({ workspace: { inherited: ['prettier'] } })),
-    ).toBe('prettier')
+    ).toBeUndefined()
     expect(formatterOf(manifest({ features: ['eslint'] }))).toBeUndefined()
   })
 })

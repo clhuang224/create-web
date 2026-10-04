@@ -63,6 +63,19 @@ export class VirtualFs {
       .sort()
   }
 
+  /** Drops pending writes that would leave a file exactly as it is on disk. */
+  async dropUnchanged() {
+    for (const [path, file] of this.pending) {
+      if (file.deleted || file.executable) continue
+      try {
+        const current = await readFile(join(this.root, path), 'utf8')
+        if (current === file.content) this.pending.delete(path)
+      } catch (error) {
+        if (!isNotFound(error)) throw error
+      }
+    }
+  }
+
   async commit() {
     for (const [path, file] of this.pending) {
       const target = join(this.root, path)

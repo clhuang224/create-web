@@ -1,8 +1,15 @@
-import { join } from 'node:path'
+import { readFile } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { templatesDir } from '../paths.ts'
 import { compatibleFeatures, type Preset, presetFeatures } from '../presets.ts'
 import { formatSource } from './format.ts'
-import { type GenerateResult, generate } from './generate.ts'
+import {
+  type GenerateInput,
+  type GenerateResult,
+  generate,
+} from './generate.ts'
 import { MANIFEST_PATH, type Manifest, readManifest } from './manifest.ts'
+import { PackageJsonEditor } from './package-json.ts'
 import { ResolveError } from './resolver.ts'
 import type { FeatureId, Framework, ProjectOptions } from './types.ts'
 import { VirtualFs } from './vfs.ts'
@@ -112,6 +119,10 @@ export async function generateWorkspace({
   const names = members.map((member) => member.name)
   const duplicate = names.find((name, index) => names.indexOf(name) !== index)
   if (duplicate) throw new ResolveError(`Duplicate project name: ${duplicate}`)
+  for (const name of names) {
+    const error = await reservedMemberNameError(name)
+    if (error) throw new ResolveError(error)
+  }
 
   const rootResult = await generate({
     root,
@@ -149,7 +160,7 @@ export async function generateMember(
       packageManager: rootOptions.packageManager,
       features: member.features,
     },
-    workspace: { inherited: rootOptions.features },
+    workspace: { rootFeatures: rootOptions.features },
   })
 }
 
@@ -168,4 +179,161 @@ export async function recordMember(workspaceRoot: string, path: string) {
     await formatSource(MANIFEST_PATH, `${JSON.stringify(next, null, 2)}\n`),
   )
   return fs
+}
+
+/**
+ * Directory names the monorepo root cannot hold a member under: the generated
+ * root `.gitignore` ignores them (e.g. `dist`, `coverage`), and package
+ * managers treat `node_modules` as their own.
+ */
+export async function reservedMemberNameError(name: string) {
+  const gitignore = await readFile(
+    join(templatesDir, 'monorepo', '_gitignore'),
+    'utf8',
+  )
+  const patterns = [
+    'node_modules',
+    ...gitignore
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#')),
+  ]
+  return patterns.some((pattern) => globMatches(pattern, name))
+    ? `"${name}" cannot be a project name: the monorepo ignores directories with that name.`
+    : undefined
+}
+
+function globMatches(pattern: string, name: string) {
+  const source = pattern
+    .split('*')
+    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+    .join('[^/]*')
+  return new RegExp(`^${source}$`).test(name)
+}
+
+/**
+ * Checks that a new member's name is free before anything is written: not
+ * reserved, not the directory name of an existing member, and not the package
+ * name of a project the package manager would also match with `--filter`.
+ */
+export async function assertNewMember(
+  workspaceRoot: string,
+  rootManifest: Manifest,
+  rootName: string,
+  name: string,
+) {
+  const reserved = await reservedMemberNameError(name)
+  if (reserved) throw new ResolveError(reserved)
+  const members = rootManifest.members ?? []
+  const sameName = members.find((path) => path.split('/').pop() === name)
+  if (sameName) {
+    throw new ResolveError(`${sameName} already uses the name "${name}".`)
+  }
+  const packageName = memberPackageName(rootName, name)
+  const paths = new Set([
+    ...members,
+    memberPath({ name, kind: 'frontend' }),
+    memberPath({ name, kind: 'library' }),
+  ])
+  for (const path of paths) {
+    if ((await readPackageName(join(workspaceRoot, path))) === packageName) {
+      throw new ResolveError(`${path} is already named ${packageName}.`)
+    }
+  }
+}
+
+/** The package name in `dir`, or undefined when it has no readable package.json. */
+async function readPackageName(dir: string) {
+  let raw: string
+  try {
+    raw = await readFile(join(dir, 'package.json'), 'utf8')
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? error.code : ''
+    if (code === 'ENOENT' || code === 'ENOTDIR') return undefined
+    throw error
+  }
+  try {
+    const { name } = JSON.parse(raw) as { name?: unknown }
+    return typeof name === 'string' ? name : undefined
+  } catch {
+    // An unparsable package.json is not a project the package manager matches.
+    return undefined
+  }
+}
+
+/** The monorepo a member belongs to; members live at apps/<name> or packages/<name>. */
+export async function findWorkspaceRoot(projectRoot: string) {
+  const root = resolve(projectRoot, '..', '..')
+  const manifest = await readManifest(new VirtualFs(root))
+  return manifest?.kind === 'monorepo' ? { root, manifest } : undefined
+}
+
+/**
+ * The `workspace` input for generating in an existing project: the root's
+ * features as they are now, or undefined if the project is not a member.
+ */
+export async function memberWorkspace(
+  projectRoot: string,
+  manifest: Manifest,
+): Promise<GenerateInput['workspace']> {
+  if (!manifest.workspace) return undefined
+  const workspace = await findWorkspaceRoot(projectRoot)
+  return {
+    // Without a monorepo root above it (e.g. the member was moved), fall back
+    // to the copy older versions stored in the member's manifest.
+    rootFeatures:
+      workspace?.manifest.features ?? manifest.workspace.inherited ?? [],
+  }
+}
+
+/**
+ * Re-runs every member's `sync` hooks against the root's current features, so
+ * files derived from them follow root changes (e.g. ESLint's `skipFormatting`
+ * after a formatter is added or removed at the root). Nothing is written to
+ * disk; files that would not change are left out of each result.
+ */
+export async function syncMembers(
+  workspaceRoot: string,
+  members: string[],
+  rootFeatures: FeatureId[],
+): Promise<WorkspaceResult['projects']> {
+  const projects: WorkspaceResult['projects'] = []
+  for (const path of members) {
+    const root = join(workspaceRoot, path)
+    const disk = new VirtualFs(root)
+    const manifest = await readManifest(disk)
+    if (!manifest) {
+      projects.push({
+        path,
+        result: {
+          fs: disk,
+          features: [],
+          applied: [],
+          removed: [],
+          notes: [
+            `no ${MANIFEST_PATH} found, so it was not updated for the root's features.`,
+          ],
+        },
+      })
+      continue
+    }
+    const { name = path } = (await PackageJsonEditor.load(disk)).data
+    const result = await generate({
+      root,
+      mode: 'add',
+      options: {
+        name,
+        kind: manifest.kind,
+        framework: manifest.framework,
+        packageManager: manifest.packageManager,
+        features: [],
+        pagesDomain: manifest.pagesDomain,
+      },
+      existing: manifest.features,
+      workspace: { rootFeatures },
+    })
+    await result.fs.dropUnchanged()
+    projects.push({ path, result })
+  }
+  return projects
 }

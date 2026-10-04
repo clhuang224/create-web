@@ -1,4 +1,4 @@
-import { join, relative, resolve, sep } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import * as p from '@clack/prompts'
 import { getFileInfo } from 'prettier'
 import { formatSource } from '../core/format.ts'
@@ -10,6 +10,7 @@ import {
 } from '../core/manifest.ts'
 import type { PackageManager } from '../core/types.ts'
 import { VirtualFs } from '../core/vfs.ts'
+import { findWorkspaceRoot } from '../core/workspace.ts'
 import { runProcess } from './shared.ts'
 
 export type Formatter = 'prettier' | 'oxfmt'
@@ -20,13 +21,10 @@ export interface TouchedProject {
   fs: VirtualFs
 }
 
+/** A member's formatter belongs to the monorepo root; pass the root's manifest for members. */
 export function formatterOf(manifest: Manifest): Formatter | undefined {
-  const features = [
-    ...manifest.features,
-    ...(manifest.workspace?.inherited ?? []),
-  ]
-  if (features.includes('oxfmt')) return 'oxfmt'
-  if (features.includes('prettier')) return 'prettier'
+  if (manifest.features.includes('oxfmt')) return 'oxfmt'
+  if (manifest.features.includes('prettier')) return 'prettier'
   return undefined
 }
 
@@ -168,9 +166,9 @@ export async function formatterLocation(
 ) {
   const standalone = { root: projectRoot, dir: '' }
   if (!manifest.workspace) return standalone
-  const workspaceRoot = resolve(projectRoot, '..', '..')
-  const rootManifest = await readManifest(new VirtualFs(workspaceRoot))
-  if (rootManifest?.kind !== 'monorepo') return standalone
+  const workspace = await findWorkspaceRoot(projectRoot)
+  if (!workspace) return standalone
+  const workspaceRoot = workspace.root
   return {
     root: workspaceRoot,
     dir: relative(workspaceRoot, projectRoot).split(sep).join('/'),
