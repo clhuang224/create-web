@@ -2,6 +2,7 @@ import { defineFeature } from '../core/feature.ts'
 import { formatSource } from '../core/format.ts'
 import { pick } from '../versions.ts'
 import { syncLintScript } from './lint-script.ts'
+import { removeFeatureDependencies } from './remove-dependencies.ts'
 
 const CONFIG = '.oxlintrc.json'
 
@@ -44,8 +45,13 @@ export default defineFeature({
     }
   },
   async remove(ctx) {
-    ctx.pkg.removeDependencies(['oxlint'])
-    await ctx.removeFile(CONFIG)
+    const configRemoved = await ctx.removeFile(CONFIG)
     syncLintScript(ctx)
+    const lint = ctx.pkg.data.scripts?.lint
+    removeFeatureDependencies(ctx, ['oxlint'], {
+      files: configRemoved ? [] : [CONFIG],
+      // syncLintScript keeps a lint script the user wrote themselves.
+      scripts: lint !== undefined && /\boxlint\b/.test(lint) ? ['lint'] : [],
+    })
   },
 })

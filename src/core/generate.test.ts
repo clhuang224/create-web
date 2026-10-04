@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -266,6 +266,134 @@ describe('generate (add)', () => {
     expect(await readFile(join(root, 'AGENTS.md'), 'utf8')).toContain(
       '`pnpm run test`: run unit tests',
     )
+  })
+})
+
+describe('generate (add, existing project code)', () => {
+  const readJson = async (path: string) =>
+    JSON.parse(await readFile(join(root, path), 'utf8'))
+
+  async function add(
+    options: ProjectOptions,
+    features: ProjectOptions['features'],
+  ) {
+    const result = await generate({
+      root,
+      mode: 'add',
+      options: { ...options, features },
+      existing: options.features,
+    })
+    await result.fs.commit()
+    return result
+  }
+
+  it('installs ESLint for a config the user wrote', async () => {
+    const base: ProjectOptions = { ...lynn, features: ['prettier'] }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+    await writeFile(join(root, 'eslint.config.js'), 'export default []\n')
+
+    await add(base, ['eslint'])
+
+    expect(await readFile(join(root, 'eslint.config.js'), 'utf8')).toBe(
+      'export default []\n',
+    )
+    const pkg = await readJson('package.json')
+    expect(pkg.scripts.lint).toBe('eslint .')
+    expect(pkg.devDependencies).toMatchObject({
+      eslint: expect.any(String),
+      'eslint-plugin-vue': expect.any(String),
+      '@vue/eslint-config-typescript': expect.any(String),
+    })
+    // Optional plugins follow only a config create-web writes.
+    expect(pkg.devDependencies).not.toHaveProperty('eslint-config-prettier')
+  })
+
+  it('keeps the version and section of a dependency the project already has', async () => {
+    const base: ProjectOptions = { ...lynn, framework: 'react', features: [] }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+    const pkg = await readJson('package.json')
+    pkg.dependencies.globals = '^16.0.0'
+    await writeFile(join(root, 'package.json'), JSON.stringify(pkg, null, 2))
+
+    await add(base, ['eslint'])
+
+    const after = await readJson('package.json')
+    expect(after.dependencies.globals).toBe('^16.0.0')
+    expect(after.devDependencies).not.toHaveProperty('globals')
+    expect(after.devDependencies).toHaveProperty('typescript-eslint')
+  })
+
+  it.each([
+    [
+      'vue',
+      'src/components/HelloWorld.vue',
+      'src/components/__tests__/HelloWorld.spec.ts',
+    ],
+    [
+      'react',
+      'src/components/HelloWorld.tsx',
+      'src/components/__tests__/HelloWorld.test.tsx',
+    ],
+  ] as const)(
+    'skips the sample test when the %s component it tests is gone',
+    async (framework, component, sample) => {
+      const base: ProjectOptions = { ...lynn, framework, features: [] }
+      await (
+        await generate({ root, mode: 'create', options: base })
+      ).fs.commit()
+      await unlink(join(root, component))
+
+      const { fs, notes } = await add(base, ['vitest'])
+
+      expect(fs.changedPaths()).not.toContain(sample)
+      expect(fs.changedPaths()).toContain('vitest.config.ts')
+      expect(notes).toEqual([
+        `No sample test was added because ${component} no longer exists; add your own tests next to the code they cover.`,
+      ])
+      if (framework === 'vue') {
+        expect(fs.changedPaths()).toContain('tsconfig.vitest.json')
+        expect((await readJson('tsconfig.json')).references).toContainEqual({
+          path: './tsconfig.vitest.json',
+        })
+      }
+    },
+  )
+
+  it('skips the library sample test when greet is no longer exported', async () => {
+    const base: ProjectOptions = {
+      name: 'demo-lib',
+      kind: 'library',
+      packageManager: 'pnpm',
+      features: [],
+    }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+    await writeFile(
+      join(root, 'src/index.ts'),
+      'export function add(a: number, b: number) {\n  return a + b\n}\n',
+    )
+
+    const { fs, notes } = await add(base, ['vitest'])
+
+    expect(fs.changedPaths()).not.toContain('src/index.test.ts')
+    expect(fs.changedPaths()).toContain('vitest.config.ts')
+    expect(notes).toEqual([
+      'No sample test was added because src/index.ts no longer exports greet; add your own tests next to the code they cover.',
+    ])
+  })
+
+  it('adds the library sample test while greet is exported', async () => {
+    const base: ProjectOptions = {
+      name: 'demo-lib',
+      kind: 'library',
+      packageManager: 'pnpm',
+      features: [],
+    }
+    await (await generate({ root, mode: 'create', options: base })).fs.commit()
+
+    const { fs, notes } = await add(base, ['vitest'])
+
+    expect(fs.changedPaths()).toContain('src/index.test.ts')
+    expect(notes).toEqual([])
   })
 })
 

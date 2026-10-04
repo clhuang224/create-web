@@ -2,6 +2,7 @@ import type { Context } from '../core/context.ts'
 import { defineFeature } from '../core/feature.ts'
 import { managedBlock, syncManagedBlock } from '../editors/managed-block.ts'
 import { pick } from '../versions.ts'
+import { removeFeatureDependencies } from './remove-dependencies.ts'
 
 const COMMIT_MSG = `#!/usr/bin/env sh
 
@@ -49,15 +50,21 @@ export default defineFeature({
     await ctx.addFile('.husky/pre-push', PRE_PUSH, { executable: true })
   },
   async remove(ctx) {
-    ctx.pkg.removeDependencies(['husky'])
-    ctx.pkg.removeScripts({ prepare: 'husky' })
-    await ctx.removeFile('.husky/commit-msg', COMMIT_MSG)
+    const scripts = ctx.pkg.removeScripts({ prepare: 'husky' })
+    const files: string[] = []
+    if (!(await ctx.removeFile('.husky/commit-msg', COMMIT_MSG))) {
+      files.push('.husky/commit-msg')
+    }
     for (const [path, content] of [
       ['.husky/pre-commit', PRE_COMMIT],
       ['.husky/pre-push', PRE_PUSH],
     ] as const) {
-      await ctx.removeFile(path, content, { ignoreManagedBlocks: true })
+      const removed = await ctx.removeFile(path, content, {
+        ignoreManagedBlocks: true,
+      })
+      if (!removed) files.push(path)
     }
+    removeFeatureDependencies(ctx, ['husky'], { files, scripts })
     ctx.note(
       'Run `git config --unset core.hooksPath` and delete .husky/_ so Git stops looking for husky hooks.',
     )

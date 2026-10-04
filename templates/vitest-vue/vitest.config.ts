@@ -7,6 +7,8 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'jsdom',
+      // A project without tests yet should not fail hooks and CI.
+      passWithNoTests: true,
       exclude: [...configDefaults.exclude, 'e2e/**'],
       root: fileURLToPath(new URL('./', import.meta.url)),
     },

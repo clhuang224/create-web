@@ -1,6 +1,7 @@
 import { defineFeature } from '../core/feature.ts'
 import { pick } from '../versions.ts'
 import { prettierOptions } from './prettier.ts'
+import { removeFeatureDependencies } from './remove-dependencies.ts'
 
 const CONFIG = '.oxfmtrc.json'
 const CONFIG_CONTENT = `${JSON.stringify(
@@ -30,8 +31,11 @@ export default defineFeature({
     await ctx.addFile(CONFIG, CONFIG_CONTENT)
   },
   async remove(ctx) {
-    ctx.pkg.removeDependencies(['oxfmt'])
-    ctx.pkg.removeScripts(SCRIPTS)
-    await ctx.removeFile(CONFIG, CONFIG_CONTENT)
+    const scripts = ctx.pkg.removeScripts(SCRIPTS)
+    const configRemoved = await ctx.removeFile(CONFIG, CONFIG_CONTENT)
+    removeFeatureDependencies(ctx, ['oxfmt'], {
+      files: configRemoved ? [] : [CONFIG],
+      scripts,
+    })
   },
 })

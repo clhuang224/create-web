@@ -31,12 +31,16 @@ export interface Context {
    * (ignoring managed block contents with `ignoreManagedBlocks`), or, when
    * `expected` is omitted, unchanged since `writeGenerated` wrote it. An edited
    * file is kept and a note is recorded.
+   *
+   * Resolves to false when the file was kept because it was edited, and true
+   * when it is gone (deleted, or already missing), so a feature can keep the
+   * dependencies a kept file still needs.
    */
   removeFile(
     path: string,
     expected?: string,
     options?: { ignoreManagedBlocks?: boolean },
-  ): Promise<void>
+  ): Promise<boolean>
   /**
    * Writes a file that create-web owns and may regenerate later. Its hash is
    * recorded in the manifest so later runs can tell whether the user edited it.

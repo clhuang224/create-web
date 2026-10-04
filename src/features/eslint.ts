@@ -3,6 +3,7 @@ import { defineFeature } from '../core/feature.ts'
 import { formatSource } from '../core/format.ts'
 import { pick } from '../versions.ts'
 import { syncLintScript } from './lint-script.ts'
+import { removeFeatureDependencies } from './remove-dependencies.ts'
 
 const CONFIG = 'eslint.config.js'
 const OXLINT_CONFIG = './.oxlintrc.json'
@@ -120,10 +121,21 @@ const BASE_DEPENDENCIES = {
 }
 const OPTIONAL_DEPENDENCIES = ['eslint-config-prettier', 'eslint-plugin-oxlint']
 
-/** Adds what the config imports and drops optional plugins it no longer uses. */
-function syncDependencies(ctx: Context, { skipFormatting, oxlint }: Options) {
+/** Dependencies ESLint needs with any config for this project. */
+function baseDependencies(ctx: Context) {
+  return BASE_DEPENDENCIES[ctx.options.framework ?? 'none']
+}
+
+/**
+ * Adds the optional plugins the generated config imports and drops the ones it
+ * no longer uses. Only for configs create-web writes; a user's own config
+ * decides its plugins itself.
+ */
+function syncOptionalDependencies(
+  ctx: Context,
+  { skipFormatting, oxlint }: Options,
+) {
   ctx.pkg.addDevDependencies({
-    ...BASE_DEPENDENCIES[ctx.options.framework ?? 'none'],
     ...(skipFormatting ? pick('eslint-config-prettier') : {}),
     ...(oxlint ? pick('eslint-plugin-oxlint') : {}),
   })
@@ -163,6 +175,8 @@ export default defineFeature({
   // (re)written here and follows features added later.
   async sync(ctx) {
     syncLintScript(ctx)
+    // ESLint itself is needed whatever config the project uses.
+    ctx.pkg.addDevDependencies(baseDependencies(ctx))
 
     const options: Options = {
       skipFormatting: ctx.has('prettier') || ctx.has('oxfmt'),
@@ -170,11 +184,16 @@ export default defineFeature({
     }
     const next = configs[ctx.options.framework ?? 'none'](options)
     const current = await ctx.fs.read(CONFIG)
-    if (current !== undefined && current === (await formatSource(CONFIG, next)))
+    if (
+      current !== undefined &&
+      current === (await formatSource(CONFIG, next))
+    ) {
+      syncOptionalDependencies(ctx, options)
       return
+    }
 
     if (await ctx.canRegenerate(CONFIG)) {
-      syncDependencies(ctx, options)
+      syncOptionalDependencies(ctx, options)
       ctx.writeGenerated(CONFIG, next)
       return
     }
@@ -186,15 +205,17 @@ export default defineFeature({
     }
   },
   async remove(ctx) {
-    await ctx.removeFile(CONFIG)
-    ctx.pkg.removeDependencies([
-      ...new Set([
-        ...Object.values(BASE_DEPENDENCIES).flatMap((deps) =>
-          Object.keys(deps),
-        ),
-        ...OPTIONAL_DEPENDENCIES,
-      ]),
-    ])
+    const configRemoved = await ctx.removeFile(CONFIG)
     syncLintScript(ctx)
+    const lint = ctx.pkg.data.scripts?.lint
+    removeFeatureDependencies(
+      ctx,
+      [...Object.keys(baseDependencies(ctx)), ...OPTIONAL_DEPENDENCIES],
+      {
+        files: configRemoved ? [] : [CONFIG],
+        // syncLintScript keeps a lint script the user wrote themselves.
+        scripts: lint !== undefined && /\beslint\b/.test(lint) ? ['lint'] : [],
+      },
+    )
   },
 })

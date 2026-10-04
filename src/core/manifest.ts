@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import pkg from '../../package.json' with { type: 'json' }
+import type { OwnedDependencies } from './package-json.ts'
 import type { FeatureId, ProjectOptions } from './types.ts'
 import type { VirtualFs } from './vfs.ts'
 
@@ -10,6 +11,11 @@ export interface Manifest extends Omit<ProjectOptions, 'name'> {
   version: string
   /** Hashes of files create-web owns, as last written by create-web. */
   generated?: Record<string, string>
+  /**
+   * Dependencies create-web added to package.json, per section; `remove` only
+   * deletes these. Missing in manifests written before it was tracked.
+   */
+  ownedDependencies?: OwnedDependencies
   /** Monorepo root: member project paths, relative to the root. */
   members?: string[]
   /** Workspace member: features provided by the monorepo root. */
@@ -18,7 +24,7 @@ export interface Manifest extends Omit<ProjectOptions, 'name'> {
 
 export type ManifestState = Pick<
   Manifest,
-  'generated' | 'members' | 'workspace'
+  'generated' | 'members' | 'workspace' | 'ownedDependencies'
 >
 
 export function hashContent(content: string) {
@@ -35,7 +41,7 @@ export async function readManifest(
 export function writeManifest(
   fs: VirtualFs,
   options: ProjectOptions,
-  { generated = {}, members, workspace }: ManifestState,
+  { generated = {}, members, workspace, ownedDependencies }: ManifestState,
 ) {
   const manifest: Manifest = {
     version: pkg.version,
@@ -49,6 +55,7 @@ export function writeManifest(
     ...(Object.keys(generated).length > 0
       ? { generated: sortKeys(generated) }
       : {}),
+    ...(ownedDependencies ? { ownedDependencies } : {}),
   }
   fs.write(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`)
 }

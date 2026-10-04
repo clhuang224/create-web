@@ -1,5 +1,6 @@
 import { defineFeature } from '../core/feature.ts'
 import { pick } from '../versions.ts'
+import { removeFeatureDependencies } from './remove-dependencies.ts'
 
 export const prettierOptions = {
   semi: false,
@@ -35,9 +36,14 @@ export default defineFeature({
     await ctx.addFile('.prettierignore', PRETTIERIGNORE)
   },
   async remove(ctx) {
-    ctx.pkg.removeDependencies(['prettier'])
-    ctx.pkg.removeScripts(SCRIPTS)
-    await ctx.removeFile('.prettierrc', PRETTIERRC)
-    await ctx.removeFile('.prettierignore', PRETTIERIGNORE)
+    const scripts = ctx.pkg.removeScripts(SCRIPTS)
+    const files: string[] = []
+    for (const [path, content] of [
+      ['.prettierrc', PRETTIERRC],
+      ['.prettierignore', PRETTIERIGNORE],
+    ] as const) {
+      if (!(await ctx.removeFile(path, content))) files.push(path)
+    }
+    removeFeatureDependencies(ctx, ['prettier'], { files, scripts })
   },
 })

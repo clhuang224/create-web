@@ -68,7 +68,14 @@ export async function generate({
     mode,
     options: finalOptions,
     fs,
-    pkg: await PackageJsonEditor.load(fs, (message) => notes.push(message)),
+    // A project without a manifest is new to create-web: nothing in its
+    // package.json is ours. A manifest without ownership records predates
+    // them, and removals fall back to the feature's own devDependencies.
+    pkg: await PackageJsonEditor.load(
+      fs,
+      (message) => notes.push(message),
+      previous ? previous.ownedDependencies : {},
+    ),
     workspaceMember: workspace !== undefined,
     has: (feature) => present.has(feature) || inherited.has(feature),
     run: (script) => `${options.packageManager} run ${script}`,
@@ -90,7 +97,7 @@ export async function generate({
     },
     removeFile: async (path, expected, removeOptions = {}) => {
       const current = await fs.read(path)
-      if (current === undefined) return
+      if (current === undefined) return true
       const strip = (content: string) =>
         removeOptions.ignoreManagedBlocks
           ? stripManagedBlocks(content)
@@ -102,11 +109,12 @@ export async function generate({
       if (unchanged) {
         fs.delete(path)
         generatedPaths.delete(path)
-      } else {
-        notes.push(
-          `${path} was changed, so it was kept; delete it yourself if it is no longer needed.`,
-        )
+        return true
       }
+      notes.push(
+        `${path} was changed, so it was kept; delete it yourself if it is no longer needed.`,
+      )
+      return false
     },
     writeGenerated: (path, content) => {
       fs.write(path, content)
@@ -145,6 +153,7 @@ export async function generate({
     generated: hashes,
     members: members ?? previous?.members,
     workspace,
+    ownedDependencies: ctx.pkg.ownedDependencies(),
   })
   await formatChangedFiles(fs)
 
