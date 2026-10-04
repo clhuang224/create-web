@@ -5,6 +5,7 @@ import { addMemberCommand } from './commands/add-member.ts'
 import { addCommand } from './commands/add.ts'
 import { createCommand } from './commands/create.ts'
 import { removeCommand } from './commands/remove.ts'
+import { routeArgs } from './commands/route.ts'
 
 const subCommands = {
   create: createCommand,
@@ -22,13 +23,4 @@ const main = defineCommand({
   subCommands,
 })
 
-// `pnpm create @clhuang224/web my-app` runs `create-web my-app`, so anything that is
-// not a subcommand or a top-level flag is treated as arguments to `create`.
-const [first] = process.argv.slice(2)
-const topLevelFlags = ['--help', '-h', '--version', '-v']
-const rawArgs =
-  first !== undefined && (first in subCommands || topLevelFlags.includes(first))
-    ? process.argv.slice(2)
-    : ['create', ...process.argv.slice(2)]
-
-void runMain(main, { rawArgs })
+void runMain(main, { rawArgs: routeArgs(process.argv.slice(2), subCommands) })
