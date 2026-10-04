@@ -27,8 +27,18 @@ export type ManifestState = Pick<
   'generated' | 'members' | 'workspace' | 'ownedDependencies'
 >
 
+/**
+ * Hashes file content as create-web wrote it. Line endings are normalized
+ * first, so a checkout that converts LF to CRLF (Git's `core.autocrlf` on
+ * Windows) does not make generated files look edited.
+ */
 export function hashContent(content: string) {
-  return createHash('sha256').update(content).digest('hex').slice(0, 16)
+  return createHash('sha256')
+    .update(content.replace(/
+/g, '
+'))
+    .digest('hex')
+    .slice(0, 16)
 }
 
 export async function readManifest(
