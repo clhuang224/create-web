@@ -5,9 +5,15 @@ import { applyStandaloneFields } from './common.ts'
 
 export const WORKSPACE_GLOBS = ['apps/*', 'packages/*']
 
-/** Root scripts fan out to every workspace that defines the script. */
+/**
+ * Root scripts fan out to every workspace that defines the script. With
+ * --if-present, a script no workspace defines is a no-op instead of an error;
+ * failures in a workspace still fail the root script.
+ */
 function recursive(packageManager: PackageManager, script: string) {
-  if (packageManager === 'bun') return `bun run --filter '*' ${script}`
+  if (packageManager === 'bun') {
+    return `bun run --filter '*' --if-present ${script}`
+  }
   return script === 'dev'
     ? 'pnpm -r --parallel --if-present run dev'
     : `pnpm -r --if-present run ${script}`

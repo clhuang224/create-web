@@ -171,7 +171,7 @@ describe('generateWorkspace', () => {
     })
     const pkg = JSON.parse((await result.fs.read('package.json')) ?? '{}')
     expect(pkg.workspaces).toEqual(['apps/*', 'packages/*'])
-    expect(pkg.scripts.build).toBe("bun run --filter '*' build")
+    expect(pkg.scripts.build).toBe("bun run --filter '*' --if-present build")
     expect(result.fs.changedPaths()).not.toContain('pnpm-workspace.yaml')
   })
 
