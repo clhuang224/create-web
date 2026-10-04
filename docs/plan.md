@@ -45,7 +45,7 @@ The first prompt picks a kind. Each kind has its own base template and its own s
 
 A monorepo is not a separate generator: it is a workspace root plus N projects produced by the other kinds (`src/core/workspace.ts`). `create-web add-member <name> --type vue|react|library` adds a project later through the same pipeline.
 
-- **Root** (`kind: monorepo`): `pnpm-workspace.yaml` or `package.json` `workspaces`, root scripts that fan out (`pnpm -r --if-present run <script>` / `bun run --filter '*' <script>`), and the features whose `kinds` include `monorepo`: formatter, husky, GitHub Actions, agent docs.
+- **Root** (`kind: monorepo`): `pnpm-workspace.yaml` or `package.json` `workspaces`, root scripts that fan out (`pnpm -r --if-present run <script>` / `bun run --filter '*' --if-present <script>`), and the features whose `kinds` include `monorepo`: formatter, husky, GitHub Actions, agent docs.
 - **Members**: frontend apps under `apps/<name>`, libraries under `packages/<name>`, named `@<root>/<name>`. They get linters, tests and framework features, but no root-owned files (`.gitignore`, `.editorconfig`, `packageManager`, `engines`).
 - **One feature list, split**: `create` takes a single feature list and assigns each feature to the root or to the members that support it; features that fit neither are rejected.
 - **Inherited features**: each member's manifest records the root's features under `workspace.inherited`. They count for `ctx.has` (e.g. ESLint turns on `skipFormatting` because the root has Prettier) but are never applied in the member. `create-web add` inside a member refuses root-owned features.
@@ -87,7 +87,7 @@ prompts / flags / preset
 Conventions every generated project gets:
 
 - `.husky/commit-msg` with the Conventional Commits regex
-- `.husky/pre-commit` running lint and typecheck; `.husky/pre-push` running tests (path-scoped in monorepos)
+- `.husky/pre-commit` running lint and typecheck; `.husky/pre-push` running tests (in monorepos these run every workspace's checks; see Known Limitations)
 - `.github/actions/setup-<pm>` composite action, check workflow (lint / typecheck / test), deploy workflow
 - GitHub Pages deploy with SPA `404.html` fallback, optional `CNAME`
 - `AGENTS.md` / `CLAUDE.md` skeleton, `docs/plan.md`, `docs/architecture.md`

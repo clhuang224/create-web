@@ -80,7 +80,7 @@ Projects are named after the root, e.g. `@my-repo/web`. GitHub Pages deployment 
 | Linter | ESLint / oxlint / both | With both, ESLint skips the rules oxlint already covers |
 | Formatter | Prettier / oxfmt | |
 | Testing | Vitest | |
-| CSS Framework | Tailwind CSS / UnoCSS | |
+| CSS Framework | Tailwind CSS | |
 | Git Hooks | Husky | Conventional Commits check, pre-commit lint and typecheck, pre-push tests |
 | CI/CD | GitHub Actions | Optional GitHub Pages deployment with SPA fallback |
 | Environment Variables | Framework built-in | dotenv for backend projects |
