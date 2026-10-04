@@ -163,6 +163,9 @@ Options for (2): Renovate with a regex custom manager can read the `'package': '
 - create-web formats the files it writes with its built-in Prettier settings, then, after a successful install, runs the project's own formatter (Prettier or oxfmt, from the monorepo root for members) on just those files and re-hashes the generated configs it wrote. With `--no-install` or a failed install only the built-in pass happens, so a project whose formatter config differs from create-web's defaults (e.g. `semi: true`) needs `format` run by hand.
 
 - Cosmetic: the root's add/remove preview always lists `package.json` and `.create-web.json`; a custom `lint` script that already runs ESLint gets the same "Update the lint script" note on every run; removing GitHub Pages leaves empty directories and `pagesDomain` in the manifest.
+- When a user's own ESLint config is kept, the note asks for `skipFormatting` or `pluginOxlint` but does not mention installing `eslint-config-prettier` / `eslint-plugin-oxlint`, which create-web leaves to that config.
+- Regenerated configs are written with LF even if the checkout uses CRLF.
+- `create` in `.` prints `cd .` as a next step; `remove vitest` leaves an empty `__tests__` directory.
 - On Windows, spawning with `shell: true` and an argument array prints Node's DEP0190 deprecation warning. Not verified on Windows.
 - Git hooks in a monorepo run every workspace's checks; they are not path-scoped yet (running only the checks of workspaces with staged changes).
 - Members are independent: `create-web` does not add `workspace:*` dependencies between them. An app that uses a library member must add the dependency and build the library first (its `exports` point to `dist`).
