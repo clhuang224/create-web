@@ -66,7 +66,7 @@ pnpm create @clhuang224/web my-repo --kind monorepo --members web:react,shared:l
 create-web add-member admin --type vue
 ```
 
-Projects are named after the root, e.g. `@my-repo/web`. GitHub Pages deployment and the publish workflow are not available inside a monorepo yet.
+Projects are named after the root, e.g. `@my-repo/web`, and each name must be unique in the workspace (names the root ignores, such as `dist` or `node_modules`, are rejected). Adding or removing a root feature, such as switching the formatter, also updates every project's generated configs. GitHub Pages deployment and the publish workflow are not available inside a monorepo yet.
 
 ## Options
 

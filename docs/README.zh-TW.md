@@ -66,7 +66,7 @@ pnpm create @clhuang224/web my-repo --kind monorepo --members web:react,shared:l
 create-web add-member admin --type vue
 ```
 
-各專案會以根目錄名稱作為 scope，例如 `@my-repo/web`。Monorepo 內目前還不支援 GitHub Pages 部署與 publish workflow。
+各專案會以根目錄名稱作為 scope，例如 `@my-repo/web`，而且名稱在 workspace 內不能重複（根目錄會忽略的名稱，例如 `dist`、`node_modules`，也不能使用）。在根目錄加入或移除功能（例如更換 formatter）時，也會一併更新各專案產生的設定檔。Monorepo 內目前還不支援 GitHub Pages 部署與 publish workflow。
 
 ## 選項
 
