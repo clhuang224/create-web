@@ -9,8 +9,10 @@ export function setupActionPath(ctx: Context) {
 
 function setupAction(ctx: Context) {
   if (ctx.options.packageManager === 'bun') {
+    // Vite, Vitest and tsdown still run on Node under `bun run`, so pin the
+    // same Node version the pnpm setup and package.json engines use.
     return `name: Setup bun
-description: Set up bun and install dependencies.
+description: Set up bun and Node.js, and install dependencies.
 
 runs:
   using: composite
@@ -18,6 +20,10 @@ runs:
     - uses: oven-sh/setup-bun@v2
       with:
         bun-version: ${versions.bun}
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${versions.node}
 
     - run: bun install --frozen-lockfile
       shell: bash
